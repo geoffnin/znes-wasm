@@ -2,6 +2,7 @@ use wasm_bindgen::prelude::*;
 
 pub mod cartridge;
 pub mod memory;
+pub mod cpu;
 
 #[wasm_bindgen]
 pub fn greet(name: &str) -> String {

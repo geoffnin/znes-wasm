@@ -3,7 +3,7 @@
 // This file demonstrates how to use the implemented SNES memory system
 // and ROM cartridge loading functionality.
 
-use znes_wasm::cartridge::{Cartridge, MappingMode, Region};
+use znes_wasm::cartridge::{Cartridge, MappingMode};
 use znes_wasm::memory::Memory;
 
 fn main() {
