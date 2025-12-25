@@ -693,7 +693,6 @@ mod tests {
         // ExHiROM banks $00-$3F upper half map to ROM offset $400000+
         rom[0x400000] = 0x12;
         rom[0x400100] = 0x34;
-        rom[0x40000] = 0x56;  // For bank $40 lower area (though won't be directly tested)
         rom[0x500000] = 0x78; // For bank $50 access
         
         let cartridge = Cartridge::from_rom(rom).unwrap();
