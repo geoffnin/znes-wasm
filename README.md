@@ -35,7 +35,7 @@ wasm-pack test --headless --firefox
 
 ### Project Structure
 
-- `src/lib.rs` - Main library entry point with WASM bindings
+- `src/lib.rs` - Library crate root with WASM bindings
 - `Cargo.toml` - Project configuration with WASM optimizations
 - `.cargo/config.toml` - Cargo configuration for WASM target
 
