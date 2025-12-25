@@ -1,0 +1,19 @@
+[package]
+name = "znes-wasm"
+version = "0.1.0"
+edition = "2024"
+authors = ["geoffnin"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1

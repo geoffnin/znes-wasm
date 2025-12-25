@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZNES-WASM Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .demo-box {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        input, button {
+            padding: 10px;
+            margin: 10px 5px;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            min-height: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 ZNES-WASM Demo</h1>
+        
+        <div class="demo-box">
+            <h2>Greet Function</h2>
+            <input type="text" id="nameInput" placeholder="Enter your name" value="World">
+            <button onclick="runGreet()">Greet</button>
+            <div class="result" id="greetResult"></div>
+        </div>
+
+        <div class="demo-box">
+            <h2>Add Function</h2>
+            <input type="number" id="num1" placeholder="Number 1" value="42">
+            <input type="number" id="num2" placeholder="Number 2" value="27">
+            <button onclick="runAdd()">Add</button>
+            <div class="result" id="addResult"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { greet, add } from './pkg/znes_wasm.js';
+
+        // Initialize the WASM module
+        await init();
+        console.log('WASM module loaded successfully!');
+
+        // Make functions available globally for the demo
+        window.runGreet = function() {
+            const name = document.getElementById('nameInput').value;
+            const result = greet(name);
+            document.getElementById('greetResult').textContent = result;
+        };
+
+        window.runAdd = function() {
+            const num1 = BigInt(document.getElementById('num1').value);
+            const num2 = BigInt(document.getElementById('num2').value);
+            const result = add(num1, num2);
+            document.getElementById('addResult').textContent = `${num1} + ${num2} = ${result}`;
+        };
+
+        // Run initial demo
+        window.runGreet();
+    </script>
+</body>
+</html>
