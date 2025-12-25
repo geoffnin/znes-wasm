@@ -524,7 +524,8 @@ mod tests {
     fn create_test_rom_exhirom() -> Vec<u8> {
         // Create a 16MB ROM to properly test all ExHiROM mapping including banks $C0+
         // This allows testing the full range of ExHiROM addressing
-        let mut rom = vec![0; 0x1000000]; // 16MB test ROM
+        const EXHIROM_TEST_ROM_SIZE: usize = 0x1000000; // 16MB
+        let mut rom = vec![0; EXHIROM_TEST_ROM_SIZE];
         
         // Write header at offset $FFC0 (HiROM/ExHiROM header location)
         let header_offset = 0xFFC0;
@@ -539,8 +540,9 @@ mod tests {
         // Cartridge type
         rom[header_offset + 0x16] = 0x00;
         
-        // ROM size (16MB would be $0D, but let's use a supported value)
-        // ROM size encoding: $0C = 8MB
+        // ROM size: Using $0C (8MB) as the declared size in header
+        // Note: The actual ROM buffer is 16MB for testing purposes, but we declare 8MB
+        // in the header as $0D (16MB) is not a standard SNES ROM size
         rom[header_offset + 0x17] = 0x0C;
         
         // SRAM size (8KB = $03)
@@ -623,7 +625,7 @@ mod tests {
         let mut rom = create_test_rom_exhirom();
         
         // Banks $40-$7D map linearly to ROM offset bank * 0x10000
-        // Bank $40:0000 -> ROM offset 0x400000 (now within our 4MB ROM)
+        // Bank $40:0000 -> ROM offset 0x400000 (within our 16MB test ROM)
         rom[0x400000] = 0xAA; // Bank $40:0000
         rom[0x500000] = 0xBB; // Bank $50:0000
         rom[0x600000] = 0xCC; // Bank $60:0000
