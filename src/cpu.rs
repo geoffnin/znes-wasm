@@ -269,6 +269,15 @@ impl Cpu65816 {
             0xAD => self.op_lda_absolute(memory),
             0xBD => self.op_lda_absolute_x(memory),
             0xB9 => self.op_lda_absolute_y(memory),
+            0xA1 => self.op_lda_direct_indexed_indirect(memory),
+            0xB1 => self.op_lda_direct_indirect_indexed(memory),
+            0xA7 => self.op_lda_direct_indirect_long(memory),
+            0xB7 => self.op_lda_direct_indirect_long_indexed(memory),
+            0xB2 => self.op_lda_direct_indirect(memory),
+            0xA3 => self.op_lda_stack_relative(memory),
+            0xB3 => self.op_lda_stack_relative_indirect_indexed(memory),
+            0xAF => self.op_lda_absolute_long(memory),
+            0xBF => self.op_lda_absolute_long_x(memory),
             
             // LDX - Load X Register
             0xA2 => self.op_ldx_immediate(memory),
@@ -290,6 +299,15 @@ impl Cpu65816 {
             0x8D => self.op_sta_absolute(memory),
             0x9D => self.op_sta_absolute_x(memory),
             0x99 => self.op_sta_absolute_y(memory),
+            0x81 => self.op_sta_direct_indexed_indirect(memory),
+            0x91 => self.op_sta_direct_indirect_indexed(memory),
+            0x87 => self.op_sta_direct_indirect_long(memory),
+            0x97 => self.op_sta_direct_indirect_long_indexed(memory),
+            0x92 => self.op_sta_direct_indirect(memory),
+            0x83 => self.op_sta_stack_relative(memory),
+            0x93 => self.op_sta_stack_relative_indirect_indexed(memory),
+            0x8F => self.op_sta_absolute_long(memory),
+            0x9F => self.op_sta_absolute_long_x(memory),
             
             // STX - Store X Register
             0x86 => self.op_stx_direct_page(memory),
@@ -348,6 +366,15 @@ impl Cpu65816 {
             0x6D => self.op_adc_absolute(memory),
             0x7D => self.op_adc_absolute_x(memory),
             0x79 => self.op_adc_absolute_y(memory),
+            0x72 => self.op_adc_direct_indirect(memory),
+            0x71 => self.op_adc_direct_indirect_indexed(memory),
+            0x61 => self.op_adc_direct_indexed_indirect(memory),
+            0x67 => self.op_adc_direct_indirect_long(memory),
+            0x77 => self.op_adc_direct_indirect_long_indexed(memory),
+            0x63 => self.op_adc_stack_relative(memory),
+            0x73 => self.op_adc_stack_relative_indirect_indexed(memory),
+            0x6F => self.op_adc_absolute_long(memory),
+            0x7F => self.op_adc_absolute_long_x(memory),
             
             // Arithmetic - SBC
             0xE9 => self.op_sbc_immediate(memory),
@@ -356,6 +383,15 @@ impl Cpu65816 {
             0xED => self.op_sbc_absolute(memory),
             0xFD => self.op_sbc_absolute_x(memory),
             0xF9 => self.op_sbc_absolute_y(memory),
+            0xF2 => self.op_sbc_direct_indirect(memory),
+            0xF1 => self.op_sbc_direct_indirect_indexed(memory),
+            0xE1 => self.op_sbc_direct_indexed_indirect(memory),
+            0xE7 => self.op_sbc_direct_indirect_long(memory),
+            0xF7 => self.op_sbc_direct_indirect_long_indexed(memory),
+            0xE3 => self.op_sbc_stack_relative(memory),
+            0xF3 => self.op_sbc_stack_relative_indirect_indexed(memory),
+            0xEF => self.op_sbc_absolute_long(memory),
+            0xFF => self.op_sbc_absolute_long_x(memory),
             
             // Logical - AND
             0x29 => self.op_and_immediate(memory),
@@ -364,6 +400,15 @@ impl Cpu65816 {
             0x2D => self.op_and_absolute(memory),
             0x3D => self.op_and_absolute_x(memory),
             0x39 => self.op_and_absolute_y(memory),
+            0x32 => self.op_and_direct_indirect(memory),
+            0x31 => self.op_and_direct_indirect_indexed(memory),
+            0x21 => self.op_and_direct_indexed_indirect(memory),
+            0x27 => self.op_and_direct_indirect_long(memory),
+            0x37 => self.op_and_direct_indirect_long_indexed(memory),
+            0x23 => self.op_and_stack_relative(memory),
+            0x33 => self.op_and_stack_relative_indirect_indexed(memory),
+            0x2F => self.op_and_absolute_long(memory),
+            0x3F => self.op_and_absolute_long_x(memory),
             
             // Logical - ORA
             0x09 => self.op_ora_immediate(memory),
@@ -372,6 +417,15 @@ impl Cpu65816 {
             0x0D => self.op_ora_absolute(memory),
             0x1D => self.op_ora_absolute_x(memory),
             0x19 => self.op_ora_absolute_y(memory),
+            0x12 => self.op_ora_direct_indirect(memory),
+            0x11 => self.op_ora_direct_indirect_indexed(memory),
+            0x01 => self.op_ora_direct_indexed_indirect(memory),
+            0x07 => self.op_ora_direct_indirect_long(memory),
+            0x17 => self.op_ora_direct_indirect_long_indexed(memory),
+            0x03 => self.op_ora_stack_relative(memory),
+            0x13 => self.op_ora_stack_relative_indirect_indexed(memory),
+            0x0F => self.op_ora_absolute_long(memory),
+            0x1F => self.op_ora_absolute_long_x(memory),
             
             // Logical - EOR
             0x49 => self.op_eor_immediate(memory),
@@ -380,6 +434,15 @@ impl Cpu65816 {
             0x4D => self.op_eor_absolute(memory),
             0x5D => self.op_eor_absolute_x(memory),
             0x59 => self.op_eor_absolute_y(memory),
+            0x52 => self.op_eor_direct_indirect(memory),
+            0x51 => self.op_eor_direct_indirect_indexed(memory),
+            0x41 => self.op_eor_direct_indexed_indirect(memory),
+            0x47 => self.op_eor_direct_indirect_long(memory),
+            0x57 => self.op_eor_direct_indirect_long_indexed(memory),
+            0x43 => self.op_eor_stack_relative(memory),
+            0x53 => self.op_eor_stack_relative_indirect_indexed(memory),
+            0x4F => self.op_eor_absolute_long(memory),
+            0x5F => self.op_eor_absolute_long_x(memory),
             
             // Comparisons
             0xC9 => self.op_cmp_immediate(memory),
@@ -388,6 +451,15 @@ impl Cpu65816 {
             0xCD => self.op_cmp_absolute(memory),
             0xDD => self.op_cmp_absolute_x(memory),
             0xD9 => self.op_cmp_absolute_y(memory),
+            0xD2 => self.op_cmp_direct_indirect(memory),
+            0xD1 => self.op_cmp_direct_indirect_indexed(memory),
+            0xC1 => self.op_cmp_direct_indexed_indirect(memory),
+            0xC7 => self.op_cmp_direct_indirect_long(memory),
+            0xD7 => self.op_cmp_direct_indirect_long_indexed(memory),
+            0xC3 => self.op_cmp_stack_relative(memory),
+            0xD3 => self.op_cmp_stack_relative_indirect_indexed(memory),
+            0xCF => self.op_cmp_absolute_long(memory),
+            0xDF => self.op_cmp_absolute_long_x(memory),
             
             0xE0 => self.op_cpx_immediate(memory),
             0xE4 => self.op_cpx_direct_page(memory),
@@ -719,6 +791,150 @@ impl Cpu65816 {
         }
     }
     
+    #[inline]
+    fn op_lda_direct_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            6
+        }
+    }
+    
+    #[inline]
+    fn op_lda_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            6
+        }
+    }
+    
+    #[inline]
+    fn op_lda_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indexed_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            7
+        }
+    }
+    
+    #[inline]
+    fn op_lda_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            7
+        }
+    }
+    
+    #[inline]
+    fn op_lda_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            7
+        }
+    }
+    
+    #[inline]
+    fn op_lda_stack_relative(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            4
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            5
+        }
+    }
+    
+    #[inline]
+    fn op_lda_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            7
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            8
+        }
+    }
+    
+    #[inline]
+    fn op_lda_absolute_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            6
+        }
+    }
+    
+    #[inline]
+    fn op_lda_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long_x(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.a = (self.a & 0xFF00) | (value as u16);
+            self.update_nz_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a = value;
+            self.update_nz_16(value);
+            6
+        }
+    }
+    
     // LDX - Load X Register
     
     #[inline]
@@ -934,6 +1150,114 @@ impl Cpu65816 {
     #[inline]
     fn op_sta_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            5
+        } else {
+            memory.write_word(addr, self.a);
+            6
+        }
+    }
+    
+    #[inline]
+    fn op_sta_direct_indirect(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_direct_indirect(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            5
+        } else {
+            memory.write_word(addr, self.a);
+            6
+        }
+    }
+    
+    #[inline]
+    fn op_sta_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_direct_indirect_indexed(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            6
+        } else {
+            memory.write_word(addr, self.a);
+            7
+        }
+    }
+    
+    #[inline]
+    fn op_sta_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_direct_indexed_indirect(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            6
+        } else {
+            memory.write_word(addr, self.a);
+            7
+        }
+    }
+    
+    #[inline]
+    fn op_sta_direct_indirect_long(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            6
+        } else {
+            memory.write_word(addr, self.a);
+            7
+        }
+    }
+    
+    #[inline]
+    fn op_sta_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long_indexed(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            6
+        } else {
+            memory.write_word(addr, self.a);
+            7
+        }
+    }
+    
+    #[inline]
+    fn op_sta_stack_relative(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_stack_relative(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            4
+        } else {
+            memory.write_word(addr, self.a);
+            5
+        }
+    }
+    
+    #[inline]
+    fn op_sta_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_stack_relative_indirect_indexed(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            7
+        } else {
+            memory.write_word(addr, self.a);
+            8
+        }
+    }
+    
+    #[inline]
+    fn op_sta_absolute_long(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_absolute_long(memory);
+        if self.p.m {
+            memory.write(addr, (self.a & 0xFF) as u8);
+            5
+        } else {
+            memory.write_word(addr, self.a);
+            6
+        }
+    }
+    
+    #[inline]
+    fn op_sta_absolute_long_x(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_absolute_long_x(memory);
         if self.p.m {
             memory.write(addr, (self.a & 0xFF) as u8);
             5
@@ -1713,6 +2037,262 @@ impl Cpu65816 {
             self.update_nz_16(self.a);
         }
     }
+
+    // ADC - Add with Carry (indirect/long addressing modes)
+    
+    #[inline]
+    fn op_adc_direct_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_adc_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_adc_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indexed_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_adc_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_adc_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_adc_stack_relative(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            4
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            5
+        }
+    }
+
+    #[inline]
+    fn op_adc_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            7
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            8
+        }
+    }
+
+    #[inline]
+    fn op_adc_absolute_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_adc_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long_x(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.adc_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.adc_16(value);
+            6
+        }
+    }
+
+    // SBC - Subtract with Borrow (indirect/long addressing modes)
+    
+    #[inline]
+    fn op_sbc_direct_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_sbc_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_sbc_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indexed_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_sbc_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_sbc_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_sbc_stack_relative(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            4
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            5
+        }
+    }
+
+    #[inline]
+    fn op_sbc_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            7
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            8
+        }
+    }
+
+    #[inline]
+    fn op_sbc_absolute_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_sbc_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long_x(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.sbc_8(value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.sbc_16(value);
+            6
+        }
+    }
     
     // ===== LOGICAL OPERATIONS =====
     
@@ -2024,6 +2604,471 @@ impl Cpu65816 {
             5
         }
     }
+
+    // AND - Logical AND (indirect/long addressing modes)
+    
+    #[inline]
+    fn op_and_direct_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_and_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_and_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indexed_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_and_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_and_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_and_stack_relative(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            4
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            5
+        }
+    }
+
+    #[inline]
+    fn op_and_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            7
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            8
+        }
+    }
+
+    #[inline]
+    fn op_and_absolute_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_and_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long_x(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a &= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    // ORA - Logical OR (indirect/long addressing modes)
+    
+    #[inline]
+    fn op_ora_direct_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_ora_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_ora_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indexed_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_ora_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_ora_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_ora_stack_relative(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            4
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            5
+        }
+    }
+
+    #[inline]
+    fn op_ora_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            7
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            8
+        }
+    }
+
+    #[inline]
+    fn op_ora_absolute_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_ora_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long_x(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 | value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a |= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    // EOR - Exclusive OR (indirect/long addressing modes)
+    
+    #[inline]
+    fn op_eor_direct_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_eor_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_eor_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indexed_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_eor_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_eor_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_eor_stack_relative(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            4
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            5
+        }
+    }
+
+    #[inline]
+    fn op_eor_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            7
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            8
+        }
+    }
+
+    #[inline]
+    fn op_eor_absolute_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_eor_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long_x(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 ^ value;
+            self.a = (self.a & 0xFF00) | (result as u16);
+            self.update_nz_8(result);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.a ^= value;
+            self.update_nz_16(self.a);
+            6
+        }
+    }
     
     // ===== COMPARISON OPERATIONS =====
     
@@ -2109,6 +3154,134 @@ impl Cpu65816 {
             let value = memory.read_word(addr);
             self.compare_16(self.a, value);
             5
+        }
+    }
+
+    // CMP - Compare Accumulator (indirect/long addressing modes)
+    
+    #[inline]
+    fn op_cmp_direct_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_cmp_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_cmp_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indexed_indirect(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_cmp_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_cmp_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_direct_indirect_long_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            6
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_cmp_stack_relative(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            4
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            5
+        }
+    }
+
+    #[inline]
+    fn op_cmp_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_stack_relative_indirect_indexed(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            7
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            8
+        }
+    }
+
+    #[inline]
+    fn op_cmp_absolute_long(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            6
+        }
+    }
+
+    #[inline]
+    fn op_cmp_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+        let addr = self.addr_absolute_long_x(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            self.compare_8((self.a & 0xFF) as u8, value);
+            5
+        } else {
+            let value = memory.read_word(addr);
+            self.compare_16(self.a, value);
+            6
         }
     }
     
@@ -4535,4 +5708,367 @@ mod tests {
         
         assert!(cpu.stopped);
     }
-}
+    
+    // ===== PHASE 4 TESTS - Advanced Addressing Modes =====
+    
+    #[test]
+    fn test_lda_direct_indirect() {
+        let code = vec![0xB2, 0x10]; // LDA ($10)
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.d = 0x0000;
+        cpu.dbr = 0x7E; // Use WRAM bank
+        cpu.pc = 0x8000;
+        
+        // Set up pointer at direct page $10 (points to WRAM)
+        memory.write_word(0x000010, 0x2000);
+        // Set value at target address in WRAM
+        memory.write(0x7E2000, 0x42);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x42);
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+    }
+    
+    #[test]
+    fn test_sta_direct_indirect_indexed() {
+        let code = vec![0x91, 0x10]; // STA ($10),Y
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.a = 0x42;
+        cpu.y = 0x05;
+        cpu.d = 0x0000;
+        cpu.dbr = 0x7E; // Use WRAM bank
+        cpu.pc = 0x8000;
+        
+        // Set up pointer at direct page $10
+        memory.write_word(0x000010, 0x2000);
+        
+        cpu.step(&mut memory);
+        
+        // Should write to $7E:2005
+        assert_eq!(memory.read(0x7E2005), 0x42);
+    }
+    
+    #[test]
+    fn test_lda_direct_indexed_indirect() {
+        let code = vec![0xA1, 0x10]; // LDA ($10,X)
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.p.x = true;
+        cpu.x = 0x05;
+        cpu.d = 0x0000;
+        cpu.dbr = 0x7E; // Use WRAM bank
+        cpu.pc = 0x8000;
+        
+        // Set up pointer at direct page $15 ($10 + $05)
+        memory.write_word(0x000015, 0x2000);
+        // Set value at target address in WRAM
+        memory.write(0x7E2000, 0x42);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x42);
+    }
+    
+    #[test]
+    fn test_lda_direct_indirect_long() {
+        let code = vec![0xA7, 0x10]; // LDA [$10]
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.d = 0x0000;
+        cpu.pc = 0x8000;
+        
+        // Set up 24-bit pointer at direct page $10 pointing to WRAM
+        memory.write_word(0x000010, 0x2000);
+        memory.write(0x000012, 0x7E); // Bank $7E (WRAM)
+        // Set value at target address in WRAM
+        memory.write(0x7E2000, 0x42);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x42);
+    }
+    
+    #[test]
+    fn test_sta_direct_indirect_long_indexed() {
+        let code = vec![0x97, 0x10]; // STA [$10],Y
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.a = 0x42;
+        cpu.y = 0x10;
+        cpu.d = 0x0000;
+        cpu.pc = 0x8000;
+        
+        // Set up 24-bit pointer at direct page $10 pointing to WRAM
+        memory.write_word(0x000010, 0x2000);
+        memory.write(0x000012, 0x7E); // Bank $7E (WRAM)
+        
+        cpu.step(&mut memory);
+        
+        // Should write to $7E:2010
+        assert_eq!(memory.read(0x7E2010), 0x42);
+    }
+    
+    #[test]
+    fn test_lda_stack_relative() {
+        let code = vec![0xA3, 0x05]; // LDA $05,S
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.s = 0x01F0;
+        cpu.pc = 0x8000;
+        
+        // Set value at stack location
+        memory.write(0x0001F5, 0x42); // S + 5
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x42);
+    }
+    
+    #[test]
+    fn test_sta_stack_relative_indirect_indexed() {
+        let code = vec![0x93, 0x05]; // STA ($05,S),Y
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.a = 0x42;
+        cpu.y = 0x10;
+        cpu.s = 0x01F0;
+        cpu.dbr = 0x7E; // Use WRAM bank
+        cpu.pc = 0x8000;
+        
+        // Set up pointer at stack location
+        memory.write_word(0x0001F5, 0x2000); // S + 5
+        
+        cpu.step(&mut memory);
+        
+        // Should write to $7E:2010
+        assert_eq!(memory.read(0x7E2010), 0x42);
+    }
+    
+    #[test]
+    fn test_lda_absolute_long() {
+        let code = vec![0xAF, 0x00, 0x20, 0x7E]; // LDA $7E2000
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.pc = 0x8000;
+        
+        // Set value at long address in WRAM
+        memory.write(0x7E2000, 0x42);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x42);
+    }
+    
+    #[test]
+    fn test_sta_absolute_long_x() {
+        let code = vec![0x9F, 0x00, 0x20, 0x7E]; // STA $7E2000,X
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.p.x = true;
+        cpu.a = 0x42;
+        cpu.x = 0x10;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        // Should write to $7E2010
+        assert_eq!(memory.read(0x7E2010), 0x42);
+    }
+    
+    #[test]
+    fn test_lda_16bit_indirect() {
+        let code = vec![0xB2, 0x10]; // LDA ($10)
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = false; // 16-bit mode
+        cpu.d = 0x0000;
+        cpu.dbr = 0x7E; // Use WRAM bank
+        cpu.pc = 0x8000;
+        
+        // Set up pointer at direct page $10
+        memory.write_word(0x000010, 0x2000);
+        // Set 16-bit value at target address in WRAM
+        memory.write_word(0x7E2000, 0x1234);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a, 0x1234);
+    }
+    
+    #[test]
+    fn test_addressing_mode_combinations() {
+        // Test that different addressing modes access different locations
+        let code = vec![
+            0xA9, 0x11, // LDA #$11
+            0x85, 0x20, // STA $20 (direct page)
+            0xA9, 0x22, // LDA #$22
+            0xB5, 0x1F, // LDA $1F,X (with X=1 -> $20)
+        ];
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.p.x = true;
+        cpu.d = 0x0000;
+        cpu.x = 0x01;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory); // LDA #$11
+        assert_eq!(cpu.a & 0xFF, 0x11);
+        
+        cpu.step(&mut memory); // STA $20
+        assert_eq!(memory.read(0x000020), 0x11);
+        
+        cpu.step(&mut memory); // LDA #$22
+        assert_eq!(cpu.a & 0xFF, 0x22);
+        
+        cpu.step(&mut memory); // LDA $1F,X (reads from $20)
+        assert_eq!(cpu.a & 0xFF, 0x11); // Should read back the stored value
+    }
+
+    #[test]
+    fn test_adc_direct_indirect() {
+        let code = vec![0x72, 0x10]; // ADC ($10)
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.p.c = false; // No carry
+        cpu.a = 0x10;
+        cpu.d = 0x0000;
+        cpu.dbr = 0x7E;
+        cpu.pc = 0x8000;
+        
+        // Set up pointer at direct page $10
+        memory.write_word(0x000010, 0x2000);
+        // Set value at target address in WRAM
+        memory.write(0x7E2000, 0x20);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x30); // 0x10 + 0x20
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+        assert!(!cpu.p.c); // No carry
+    }
+
+    #[test]
+    fn test_and_absolute_long() {
+        let code = vec![0x2F, 0x00, 0x20, 0x7E]; // AND $7E2000
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.a = 0xFF;
+        cpu.pc = 0x8000;
+        
+        // Set value at long address in WRAM
+        memory.write(0x7E2000, 0x0F);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x0F);
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+    }
+
+    #[test]
+    fn test_ora_stack_relative() {
+        let code = vec![0x03, 0x05]; // ORA $05,S
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.a = 0x0F;
+        cpu.s = 0x01F0;
+        cpu.pc = 0x8000;
+        
+        // Set value on stack
+        memory.write(0x0001F5, 0xF0);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0xFF); // 0x0F | 0xF0
+        assert!(!cpu.p.z);
+        assert!(cpu.p.n); // Bit 7 is set
+    }
+
+    #[test]
+    fn test_eor_direct_indirect_long() {
+        let code = vec![0x47, 0x10]; // EOR [$10]
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.a = 0xFF;
+        cpu.d = 0x0000;
+        cpu.pc = 0x8000;
+        
+        // Set up 24-bit pointer at direct page $10 pointing to WRAM
+        memory.write_word(0x000010, 0x2000);
+        memory.write(0x000012, 0x7E);
+        // Set value at target address in WRAM
+        memory.write(0x7E2000, 0xAA);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x55); // 0xFF ^ 0xAA
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+    }
+
+    #[test]
+    fn test_cmp_absolute_long_x() {
+        let code = vec![0xDF, 0x00, 0x20, 0x7E]; // CMP $7E2000,X
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.p.x = true;
+        cpu.a = 0x50;
+        cpu.x = 0x10;
+        cpu.pc = 0x8000;
+        
+        // Set value at long address in WRAM
+        memory.write(0x7E2010, 0x30);
+        
+        cpu.step(&mut memory);
+        
+        // 0x50 >= 0x30, so carry should be set
+        assert!(cpu.p.c);
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+    }
+
+    #[test]
+    fn test_sbc_direct_indirect_indexed() {
+        let code = vec![0xF1, 0x10]; // SBC ($10),Y
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.p.c = true; // No borrow
+        cpu.a = 0x50;
+        cpu.y = 0x05;
+        cpu.d = 0x0000;
+        cpu.dbr = 0x7E;
+        cpu.pc = 0x8000;
+        
+        // Set up pointer at direct page $10
+        memory.write_word(0x000010, 0x2000);
+        // Set value at target address in WRAM
+        memory.write(0x7E2005, 0x30);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a & 0xFF, 0x20); // 0x50 - 0x30
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+        assert!(cpu.p.c); // No borrow
+    }}
