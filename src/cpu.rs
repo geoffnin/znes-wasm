@@ -584,11 +584,6 @@ impl Cpu65816 {
             // Phase 3: Block Moves
             0x44 => self.op_mvp(memory),
             0x54 => self.op_mvn(memory),
-            
-            _ => {
-                // Unknown opcode - treat as NOP for now
-                2
-            }
         }
     }
     
