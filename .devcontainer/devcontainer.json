@@ -1,0 +1,32 @@
+{
+  "name": "Rust Development Environment",
+  "image": "mcr.microsoft.com/devcontainers/rust:latest",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest",
+      "profile": "default"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb",
+        "serayuzgur.crates",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.cargo.loadOutDirsFromCheck": true,
+        "rust-analyzer.procMacro.enable": true,
+        "rust-analyzer.inlayHints.enable": true
+      }
+    }
+  },
+
+  "postCreateCommand": "rustc --version && cargo --version",
+
+  "remoteUser": "vscode"
+}
