@@ -404,6 +404,40 @@ mod tests {
         rom
     }
     
+    fn create_exhirom_header() -> Vec<u8> {
+        let mut rom = vec![0; 0x10000]; // 64KB
+        
+        // Header at $FFC0 (ExHiROM uses HiROM header location)
+        let offset = 0xFFC0;
+        
+        // Title (exactly 21 bytes)
+        let title = b"EXHIROM TEST         "; // 21 bytes
+        rom[offset..offset + 21].copy_from_slice(title);
+        
+        // Mapping mode: ExHiROM, Fast ($25)
+        rom[offset + 0x15] = 0x25;
+        
+        // Cartridge type: ROM+RAM
+        rom[offset + 0x16] = 0x01;
+        
+        // ROM size: 64KB = 2^16 = $09
+        rom[offset + 0x17] = 0x09;
+        
+        // SRAM size: None
+        rom[offset + 0x18] = 0x00;
+        
+        // Region: Europe
+        rom[offset + 0x19] = 0x02;
+        
+        // Checksum complement
+        rom[offset + 0x1C] = 0xAB;
+        rom[offset + 0x1D] = 0xCD;
+        rom[offset + 0x1E] = 0x54;
+        rom[offset + 0x1F] = 0x32;
+        
+        rom
+    }
+    
     #[test]
     fn test_lorom_detection() {
         let rom = create_lorom_header();
@@ -423,6 +457,16 @@ mod tests {
         assert_eq!(cartridge.mapping_mode(), MappingMode::HiRom);
         assert_eq!(cartridge.title(), "HIROM TEST");
         assert_eq!(cartridge.region(), Region::Japan);
+    }
+    
+    #[test]
+    fn test_exhirom_detection() {
+        let rom = create_exhirom_header();
+        let cartridge = Cartridge::from_rom(rom).unwrap();
+        
+        assert_eq!(cartridge.mapping_mode(), MappingMode::ExHiRom);
+        assert_eq!(cartridge.title(), "EXHIROM TEST");
+        assert_eq!(cartridge.region(), Region::Europe);
     }
     
     #[test]
