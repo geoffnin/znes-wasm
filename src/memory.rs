@@ -519,4 +519,217 @@ mod tests {
         let sram_data = memory.sram();
         assert_eq!(sram_data.len(), 8192); // 8KB as specified in header
     }
+    
+    // Helper function to create a test ROM with ExHiROM mapping
+    fn create_test_rom_exhirom() -> Vec<u8> {
+        // Create a 16MB ROM to properly test all ExHiROM mapping including banks $C0+
+        // This allows testing the full range of ExHiROM addressing
+        const EXHIROM_TEST_ROM_SIZE: usize = 0x1000000; // 16MB
+        let mut rom = vec![0; EXHIROM_TEST_ROM_SIZE];
+        
+        // Write header at offset $FFC0 (HiROM/ExHiROM header location)
+        let header_offset = 0xFFC0;
+        
+        // ROM title (exactly 21 bytes)
+        let title = b"TEST EXHIROM ROM     "; // 21 bytes
+        rom[header_offset..header_offset + 21].copy_from_slice(title);
+        
+        // Mapping mode: ExHiROM ($25)
+        rom[header_offset + 0x15] = 0x25;
+        
+        // Cartridge type
+        rom[header_offset + 0x16] = 0x00;
+        
+        // ROM size: Using $0C (8MB) as the declared size in header
+        // Note: The actual ROM buffer is 16MB to allow testing of higher banks ($C0+)
+        // which would map to offsets beyond 8MB. The implementation uses the buffer size
+        // for bounds checking, not the header value, so this allows thorough testing of
+        // the ExHiROM address translation logic across the full address space.
+        rom[header_offset + 0x17] = 0x0C;
+        
+        // SRAM size (8KB = $03)
+        rom[header_offset + 0x18] = 0x03;
+        
+        // Region (USA = $01)
+        rom[header_offset + 0x19] = 0x01;
+        
+        // Checksum complement and checksum
+        rom[header_offset + 0x1C] = 0xFF;
+        rom[header_offset + 0x1D] = 0xFF;
+        rom[header_offset + 0x1E] = 0x00;
+        rom[header_offset + 0x1F] = 0x00;
+        
+        rom
+    }
+    
+    #[test]
+    fn test_exhirom_wram_access() {
+        let rom = create_test_rom_exhirom();
+        let cartridge = Cartridge::from_rom(rom).unwrap();
+        let mut memory = Memory::new(&cartridge);
+        
+        // Verify mapping mode is ExHiROM
+        assert_eq!(cartridge.mapping_mode(), MappingMode::ExHiRom);
+        
+        // Test WRAM access at banks $7E-$7F (128KB WRAM)
+        memory.write(0x7E0000, 0x42);
+        assert_eq!(memory.read(0x7E0000), 0x42);
+        
+        memory.write(0x7F0000, 0x43);
+        assert_eq!(memory.read(0x7F0000), 0x43);
+        
+        // Test WRAM mirror at $00:0000-$1FFF
+        memory.write(0x000100, 0xAB);
+        assert_eq!(memory.read(0x000100), 0xAB);
+        
+        // Test WRAM mirror in bank $80 (mirrored from $00)
+        memory.write(0x800200, 0xCD);
+        assert_eq!(memory.read(0x800200), 0xCD);
+        
+        // Test WRAM mirror in bank $20
+        memory.write(0x200300, 0xEF);
+        assert_eq!(memory.read(0x200300), 0xEF);
+    }
+    
+    #[test]
+    fn test_exhirom_rom_access_standard_banks() {
+        let mut rom = create_test_rom_exhirom();
+        
+        // In ExHiROM, banks $00-$3F at $8000-$FFFF map to ROM offset:
+        // (effective_bank + 0x40) * 0x10000 + address_offset
+        // where address_offset = (address & 0x7FFF) relative to $8000
+        
+        // Bank $00:8000 -> ROM offset 0x400000 + 0x0000 = 0x400000
+        rom[0x400000] = 0x12;
+        rom[0x400100] = 0x34;
+        
+        // Bank $01:8000 -> ROM offset (0x01 + 0x40) * 0x10000 + 0x0000 = 0x410000
+        rom[0x410000] = 0x56;
+        
+        // Bank $01:C000 -> ROM offset 0x410000 + 0x4000 = 0x414000
+        rom[0x414000] = 0x78;
+        
+        let cartridge = Cartridge::from_rom(rom).unwrap();
+        let memory = Memory::new(&cartridge);
+        
+        // Test ROM read in banks $00-$3F at $8000-$FFFF
+        assert_eq!(memory.read(0x008000), 0x12); // Bank $00:8000
+        assert_eq!(memory.read(0x008100), 0x34); // Bank $00:8100
+        
+        // Test bank $01
+        assert_eq!(memory.read(0x018000), 0x56); // Bank $01:8000
+        assert_eq!(memory.read(0x01C000), 0x78); // Bank $01:C000
+        
+        // Test ROM mirror in banks $80-$BF (should mirror $00-$3F)
+        assert_eq!(memory.read(0x808000), 0x12); // Bank $80:8000 (mirrors $00:8000)
+        assert_eq!(memory.read(0x818000), 0x56); // Bank $81:8000 (mirrors $01:8000)
+    }
+    
+    #[test]
+    fn test_exhirom_rom_access_extended_banks() {
+        let mut rom = create_test_rom_exhirom();
+        
+        // Banks $40-$7D map linearly to ROM offset bank * 0x10000
+        // Bank $40:0000 -> ROM offset 0x400000 (within our 16MB test ROM)
+        rom[0x400000] = 0xAA; // Bank $40:0000
+        rom[0x500000] = 0xBB; // Bank $50:0000
+        rom[0x600000] = 0xCC; // Bank $60:0000
+        
+        // Banks $C0+ also map linearly to ROM
+        // Bank $C0 should map to ROM offset 0xC0 * 0x10000 = 0xC00000
+        rom[0xC00000] = 0xDD;
+        
+        let cartridge = Cartridge::from_rom(rom).unwrap();
+        let memory = Memory::new(&cartridge);
+        
+        // Test ROM access in banks $40-$7D (linear mapping)
+        assert_eq!(memory.read(0x400000), 0xAA); // Bank $40:0000
+        assert_eq!(memory.read(0x500000), 0xBB); // Bank $50:0000
+        assert_eq!(memory.read(0x600000), 0xCC); // Bank $60:0000
+        
+        // Test ROM access in banks $C0+
+        assert_eq!(memory.read(0xC00000), 0xDD); // Bank $C0:0000
+    }
+    
+    #[test]
+    fn test_exhirom_sram_access() {
+        let rom = create_test_rom_exhirom();
+        let cartridge = Cartridge::from_rom(rom).unwrap();
+        let mut memory = Memory::new(&cartridge);
+        
+        // ExHiROM SRAM is in banks $00-$3F and $80-$BF at $6000-$7FFF
+        // Test SRAM write and read in bank $00
+        memory.write(0x006000, 0xAA);
+        assert_eq!(memory.read(0x006000), 0xAA);
+        
+        // Test SRAM in bank $01
+        memory.write(0x016000, 0xBB);
+        assert_eq!(memory.read(0x016000), 0xBB);
+        
+        // Test SRAM mirror in bank $80
+        memory.write(0x806000, 0xCC);
+        assert_eq!(memory.read(0x806000), 0xCC);
+        
+        // Verify SRAM size
+        let sram_data = memory.sram();
+        assert_eq!(sram_data.len(), 8192); // 8KB as specified in header
+    }
+    
+    #[test]
+    fn test_exhirom_address_translation() {
+        let mut rom = create_test_rom_exhirom();
+        
+        // Place distinctive data at specific ROM locations to verify address translation
+        // In ExHiROM, banks $00-$3F at $8000-$FFFF map to ROM at (effective_bank + 0x40) * 0x10000 + address_offset
+        
+        // Bank $00:8000 -> ROM offset 0x400000
+        rom[0x400000] = 0x11;
+        
+        // Bank $00:C000 -> ROM offset 0x400000 + 0x4000 = 0x404000
+        rom[0x404000] = 0x22;
+        
+        // Bank $00:F000 -> ROM offset 0x400000 + 0x7000 = 0x407000
+        rom[0x407000] = 0x33;
+        
+        // Bank $01:8000 -> ROM offset 0x410000
+        rom[0x410000] = 0x44;
+        
+        // Bank $02:A000 -> ROM offset 0x420000 + 0x2000 = 0x422000
+        rom[0x422000] = 0x55;
+        
+        let cartridge = Cartridge::from_rom(rom).unwrap();
+        let memory = Memory::new(&cartridge);
+        
+        // Verify address translation for bank $00 upper half
+        assert_eq!(memory.read(0x008000), 0x11); // $00:8000 -> ROM $400000
+        assert_eq!(memory.read(0x00C000), 0x22); // $00:C000 -> ROM $404000
+        assert_eq!(memory.read(0x00F000), 0x33); // $00:F000 -> ROM $407000
+        
+        // Verify address translation for bank $01
+        assert_eq!(memory.read(0x018000), 0x44); // $01:8000 -> ROM $410000
+        
+        // Verify address translation for bank $02
+        assert_eq!(memory.read(0x02A000), 0x55); // $02:A000 -> ROM $422000
+        
+        // Verify mirroring in banks $80+
+        assert_eq!(memory.read(0x808000), 0x11); // $80:8000 mirrors $00:8000
+        assert_eq!(memory.read(0x818000), 0x44); // $81:8000 mirrors $01:8000
+    }
+    
+    #[test]
+    fn test_exhirom_word_access() {
+        let rom = create_test_rom_exhirom();
+        let cartridge = Cartridge::from_rom(rom).unwrap();
+        let mut memory = Memory::new(&cartridge);
+        
+        // Test 16-bit write and read in WRAM
+        memory.write_word(0x7E0000, 0xABCD);
+        assert_eq!(memory.read_word(0x7E0000), 0xABCD);
+        assert_eq!(memory.read(0x7E0000), 0xCD); // Little-endian
+        assert_eq!(memory.read(0x7E0001), 0xAB);
+        
+        // Test 16-bit access in SRAM
+        memory.write_word(0x006000, 0x1234);
+        assert_eq!(memory.read_word(0x006000), 0x1234);
+    }
 }
