@@ -15,7 +15,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
+    fn test_add_basic_arithmetic() {
         let result = add(2, 2);
         assert_eq!(result, 4);
     }
