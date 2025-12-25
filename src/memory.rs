@@ -541,8 +541,10 @@ mod tests {
         rom[header_offset + 0x16] = 0x00;
         
         // ROM size: Using $0C (8MB) as the declared size in header
-        // Note: The actual ROM buffer is 16MB for testing purposes, but we declare 8MB
-        // in the header as $0D (16MB) is not a standard SNES ROM size
+        // Note: The actual ROM buffer is 16MB to allow testing of higher banks ($C0+)
+        // which would map to offsets beyond 8MB. The implementation uses the buffer size
+        // for bounds checking, not the header value, so this allows thorough testing of
+        // the ExHiROM address translation logic across the full address space.
         rom[header_offset + 0x17] = 0x0C;
         
         // SRAM size (8KB = $03)
@@ -593,7 +595,7 @@ mod tests {
     fn test_exhirom_rom_access_standard_banks() {
         let mut rom = create_test_rom_exhirom();
         
-        // In ExHiROM, banks $00-$3F at $8000-$FFFF map to ROM offset (effective_bank + 0x40) * 0x10000 + page_offset
+        // In ExHiROM, banks $00-$3F at $8000-$FFFF map to ROM offset (effective_bank + 0x40) * 0x10000 + address_offset
         // Bank $00:8000 -> ROM offset 0x400000 + 0x0000 = 0x400000
         rom[0x400000] = 0x12;
         rom[0x400100] = 0x34;
@@ -675,7 +677,7 @@ mod tests {
         let mut rom = create_test_rom_exhirom();
         
         // Place distinctive data at specific ROM locations to verify address translation
-        // In ExHiROM, banks $00-$3F at $8000-$FFFF map to ROM at (effective_bank + 0x40) * 0x10000 + offset
+        // In ExHiROM, banks $00-$3F at $8000-$FFFF map to ROM at (effective_bank + 0x40) * 0x10000 + address_offset
         
         // Bank $00:8000 -> ROM offset 0x400000
         rom[0x400000] = 0x11;
