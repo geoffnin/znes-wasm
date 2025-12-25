@@ -331,7 +331,9 @@ impl Cpu65816 {
             0xBA => self.op_tsx(memory),
             0x8A => self.op_txa(memory),
             0x9A => self.op_txs(memory),
+            0x9B => self.op_txy(memory),
             0x98 => self.op_tya(memory),
+            0xBB => self.op_tyx(memory),
             
             // Stack Operations
             0x48 => self.op_pha(memory),
@@ -353,10 +355,17 @@ impl Cpu65816 {
             0x50 => self.op_bvc(memory),
             0x70 => self.op_bvs(memory),
             0x80 => self.op_bra(memory),
+            0x82 => self.op_brl(memory),
+            
+            // Reserved
+            0x42 => self.op_wdm(memory),
             
             // Jumps
             0x4C => self.op_jmp_absolute(memory),
+            0x6C => self.op_jmp_indirect(memory),
+            0x7C => self.op_jmp_indexed_indirect(memory),
             0x20 => self.op_jsr_absolute(memory),
+            0xFC => self.op_jsr_indexed_indirect(memory),
             0x60 => self.op_rts(memory),
             
             // Arithmetic - ADC
@@ -475,6 +484,10 @@ impl Cpu65816 {
             0x34 => self.op_bit_direct_page_x(memory),
             0x2C => self.op_bit_absolute(memory),
             0x3C => self.op_bit_absolute_x(memory),
+            0x04 => self.op_tsb_direct_page(memory),
+            0x0C => self.op_tsb_absolute(memory),
+            0x14 => self.op_trb_direct_page(memory),
+            0x1C => self.op_trb_absolute(memory),
             
             // Shifts and Rotates
             0x0A => self.op_asl_accumulator(memory),
@@ -1442,17 +1455,19 @@ impl Cpu65816 {
         }
         2
     }
-    
+
     #[inline]
-    fn op_txs(&mut self, _memory: &Memory) -> u8 {
-        self.s = if self.p.e {
-            0x0100 | (self.x & 0xFF)
+    fn op_txy(&mut self, _memory: &Memory) -> u8 {
+        if self.p.x {
+            self.y = self.x & 0xFF;
+            self.update_nz_8(self.y as u8);
         } else {
-            self.x
-        };
+            self.y = self.x;
+            self.update_nz_16(self.y);
+        }
         2
     }
-    
+
     #[inline]
     fn op_tya(&mut self, _memory: &Memory) -> u8 {
         if self.p.m {
@@ -1462,6 +1477,28 @@ impl Cpu65816 {
             self.a = self.y;
             self.update_nz_16(self.a);
         }
+        2
+    }
+
+    #[inline]
+    fn op_tyx(&mut self, _memory: &Memory) -> u8 {
+        if self.p.x {
+            self.x = self.y & 0xFF;
+            self.update_nz_8(self.x as u8);
+        } else {
+            self.x = self.y;
+            self.update_nz_16(self.x);
+        }
+        2
+    }
+    
+    #[inline]
+    fn op_txs(&mut self, _memory: &Memory) -> u8 {
+        self.s = if self.p.e {
+            0x0100 | (self.x & 0xFF)
+        } else {
+            self.x
+        };
         2
     }
     
@@ -1654,6 +1691,14 @@ impl Cpu65816 {
         self.pc = self.pc.wrapping_add(offset as u16);
         3
     }
+
+    #[inline]
+    fn op_brl(&mut self, memory: &Memory) -> u8 {
+        // Branch Always Long - 16-bit relative offset
+        let offset = self.fetch_word(memory) as i16;
+        self.pc = self.pc.wrapping_add(offset as u16);
+        4
+    }
     
     // Jump Instructions
     
@@ -1661,6 +1706,23 @@ impl Cpu65816 {
     fn op_jmp_absolute(&mut self, memory: &Memory) -> u8 {
         self.pc = self.fetch_word(memory);
         3
+    }
+
+    #[inline]
+    fn op_jmp_indirect(&mut self, memory: &Memory) -> u8 {
+        // JMP (addr) - 0x6C
+        let ptr = self.fetch_word(memory);
+        self.pc = memory.read_word(((self.pbr as u32) << 16) | (ptr as u32));
+        5
+    }
+
+    #[inline]
+    fn op_jmp_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+        // JMP (addr,X) - 0x7C
+        let ptr = self.fetch_word(memory);
+        let effective_addr = ptr.wrapping_add(self.x);
+        self.pc = memory.read_word(((self.pbr as u32) << 16) | (effective_addr as u32));
+        6
     }
     
     #[inline]
@@ -1670,6 +1732,17 @@ impl Cpu65816 {
         self.push_word(memory, return_addr);
         self.pc = target;
         6
+    }
+
+    #[inline]
+    fn op_jsr_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
+        // JSR (addr,X) - 0xFC
+        let ptr = self.fetch_word(memory);
+        let return_addr = self.pc.wrapping_sub(1);
+        self.push_word(memory, return_addr);
+        let effective_addr = ptr.wrapping_add(self.x);
+        self.pc = memory.read_word(((self.pbr as u32) << 16) | (effective_addr as u32));
+        8
     }
     
     #[inline]
@@ -1727,6 +1800,13 @@ impl Cpu65816 {
     
     #[inline]
     fn op_nop(&mut self, _memory: &Memory) -> u8 {
+        2
+    }
+
+    #[inline]
+    fn op_wdm(&mut self, memory: &Memory) -> u8 {
+        // WDM - Reserved for future expansion (2-byte NOP)
+        self.fetch_byte(memory); // Skip the signature byte
         2
     }
     
@@ -3483,6 +3563,82 @@ impl Cpu65816 {
             self.p.n = value & 0x8000 != 0;
             self.p.v = value & 0x4000 != 0;
             5
+        }
+    }
+
+    // TSB - Test and Set Bits
+    
+    #[inline]
+    fn op_tsb_direct_page(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_direct_page(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.p.z = result == 0;
+            memory.write(addr, value | ((self.a & 0xFF) as u8));
+            5
+        } else {
+            let value = memory.read_word(addr);
+            let result = self.a & value;
+            self.p.z = result == 0;
+            memory.write_word(addr, value | self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_tsb_absolute(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_absolute(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.p.z = result == 0;
+            memory.write(addr, value | ((self.a & 0xFF) as u8));
+            6
+        } else {
+            let value = memory.read_word(addr);
+            let result = self.a & value;
+            self.p.z = result == 0;
+            memory.write_word(addr, value | self.a);
+            8
+        }
+    }
+
+    // TRB - Test and Reset Bits
+    
+    #[inline]
+    fn op_trb_direct_page(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_direct_page(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.p.z = result == 0;
+            memory.write(addr, value & !((self.a & 0xFF) as u8));
+            5
+        } else {
+            let value = memory.read_word(addr);
+            let result = self.a & value;
+            self.p.z = result == 0;
+            memory.write_word(addr, value & !self.a);
+            7
+        }
+    }
+
+    #[inline]
+    fn op_trb_absolute(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.addr_absolute(memory);
+        if self.p.m {
+            let value = memory.read(addr);
+            let result = (self.a & 0xFF) as u8 & value;
+            self.p.z = result == 0;
+            memory.write(addr, value & !((self.a & 0xFF) as u8));
+            6
+        } else {
+            let value = memory.read_word(addr);
+            let result = self.a & value;
+            self.p.z = result == 0;
+            memory.write_word(addr, value & !self.a);
+            8
         }
     }
     
@@ -6071,4 +6227,139 @@ mod tests {
         assert!(!cpu.p.z);
         assert!(!cpu.p.n);
         assert!(cpu.p.c); // No borrow
-    }}
+    }
+    // Phase 5 Tests - Complete instruction set coverage
+
+    #[test]
+    fn test_tsb_direct_page() {
+        let code = vec![0x04, 0x10]; // TSB $10
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.a = 0x0F;
+        cpu.d = 0x0000;
+        cpu.pc = 0x8000;
+        
+        memory.write(0x000010, 0xF0);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(memory.read(0x000010), 0xFF); // 0xF0 | 0x0F
+        assert!(cpu.p.z); // 0x0F & 0xF0 == 0, so Z flag is set
+    }
+
+    #[test]
+    fn test_trb_absolute() {
+        let code = vec![0x1C, 0x10, 0x00]; // TRB $0010
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.a = 0x55;
+        cpu.pc = 0x8000;
+        cpu.dbr = 0x00;
+        
+        // Write to address $0010 in bank 0
+        memory.write(0x000010, 0xFF);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(memory.read(0x000010), 0xAA); // 0xFF & ~0x55
+        assert!(!cpu.p.z); // 0x55 & 0xFF != 0
+    }
+
+    #[test]
+    fn test_txy_transfer() {
+        let code = vec![0x9B]; // TXY
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.x = true; // 8-bit mode
+        cpu.x = 0x42;
+        cpu.y = 0x00;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.y, 0x42);
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+    }
+
+    #[test]
+    fn test_tyx_transfer() {
+        let code = vec![0xBB]; // TYX
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.x = true; // 8-bit mode
+        cpu.y = 0x89;
+        cpu.x = 0x00;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.x, 0x89);
+        assert!(!cpu.p.z);
+        assert!(cpu.p.n); // Bit 7 is set
+    }
+
+    #[test]
+    fn test_jmp_indirect() {
+        let code = vec![0x6C, 0x10, 0x00]; // JMP ($0010)
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.pc = 0x8000;
+        cpu.pbr = 0x00;
+        
+        // Set up pointer at direct page $0010
+        memory.write_word(0x000010, 0x5000);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.pc, 0x5000);
+    }
+
+    #[test]
+    fn test_jmp_indexed_indirect() {
+        let code = vec![0x7C, 0x10, 0x00]; // JMP ($0010,X)
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.x = true;
+        cpu.x = 0x10;
+        cpu.pc = 0x8000;
+        cpu.pbr = 0x00;
+        
+        // Set up pointer at $0020 ($0010 + $10)
+        memory.write_word(0x000020, 0x5000);
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.pc, 0x5000);
+    }
+
+    #[test]
+    fn test_brl() {
+        let code = vec![0x82, 0x10, 0x00]; // BRL +$0010
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.pc, 0x8013); // 0x8000 + 3 (instruction size) + 0x0010
+    }
+
+    #[test]
+    fn test_wdm() {
+        let code = vec![0x42, 0xAB, 0xEA]; // WDM $AB, NOP
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory); // WDM - should skip signature byte
+        
+        assert_eq!(cpu.pc, 0x8002); // Advanced by 2 bytes
+        
+        cpu.step(&mut memory); // NOP
+        
+        assert_eq!(cpu.pc, 0x8003); // Advanced by 1 more byte
+    }
+}
