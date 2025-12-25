@@ -621,8 +621,6 @@ mod tests {
         rom[0x100] = 0x34;
         rom[0x8000] = 0x56;
         rom[0xC000] = 0x78;
-        let expected_4000 = rom[0x4000];
-        let expected_6000 = rom[0x6000];
         
         let cartridge = Cartridge::from_rom(rom).unwrap();
         let memory = Memory::new(&cartridge);
@@ -634,8 +632,8 @@ mod tests {
         
         // Test within bank $00
         // Address 0x00C000: page_in_bank = 6, rom_offset = 0 * 0x10000 + (6 - 4) * 0x2000 = 0x4000
-        assert_eq!(memory.read(0x00C000), expected_4000); // Offset (6-4)*0x2000 = 0x4000
-        assert_eq!(memory.read(0x00E000), expected_6000); // Offset (7-4)*0x2000 = 0x6000
+        assert_eq!(memory.read(0x00C000), 0x00); // Offset (6-4)*0x2000 = 0x4000 (uninitialized)
+        assert_eq!(memory.read(0x00E000), 0x00); // Offset (7-4)*0x2000 = 0x6000 (uninitialized)
         
         // Mirror in bank $80
         assert_eq!(memory.read(0x808000), 0x12);
@@ -697,7 +695,6 @@ mod tests {
         rom[0x400100] = 0x34;
         rom[0x40000] = 0x56;  // For bank $40 lower area (though won't be directly tested)
         rom[0x500000] = 0x78; // For bank $50 access
-        let expected_400100 = rom[0x400100];
         
         let cartridge = Cartridge::from_rom(rom).unwrap();
         let memory = Memory::new(&cartridge);
@@ -707,7 +704,7 @@ mod tests {
         // Bank $00, offset $8000: effective_bank=0
         // rom_offset = (0 + 0x40) * 0x10000 + (4 - 4) * 0x2000 = 0x400000
         assert_eq!(memory.read(0x008000), 0x12); // ROM offset 0x400000
-        assert_eq!(memory.read(0x008100), expected_400100); // ROM offset 0x400100
+        assert_eq!(memory.read(0x008100), 0x34); // ROM offset 0x400100
         
         // Banks $40-$7D map directly
         // Bank $40, offset $0: rom_offset = 0x40 * 0x10000 + 0 = 0x400000
