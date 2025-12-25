@@ -595,7 +595,10 @@ mod tests {
     fn test_exhirom_rom_access_standard_banks() {
         let mut rom = create_test_rom_exhirom();
         
-        // In ExHiROM, banks $00-$3F at $8000-$FFFF map to ROM offset (effective_bank + 0x40) * 0x10000 + address_offset
+        // In ExHiROM, banks $00-$3F at $8000-$FFFF map to ROM offset:
+        // (effective_bank + 0x40) * 0x10000 + address_offset
+        // where address_offset = (address & 0x7FFF) relative to $8000
+        
         // Bank $00:8000 -> ROM offset 0x400000 + 0x0000 = 0x400000
         rom[0x400000] = 0x12;
         rom[0x400100] = 0x34;
