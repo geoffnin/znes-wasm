@@ -459,6 +459,47 @@ impl Cpu65816 {
             // System
             0xEA => self.op_nop(memory),
             
+            // Phase 3: Processor Control
+            0xC2 => self.op_rep(memory),
+            0xE2 => self.op_sep(memory),
+            0xFB => self.op_xce(memory),
+            0xCB => self.op_wai(memory),
+            0xDB => self.op_stp(memory),
+            
+            // Phase 3: 16-bit Register Transfers
+            0x5B => self.op_tcd(memory),
+            0x1B => self.op_tcs(memory),
+            0x7B => self.op_tdc(memory),
+            0x3B => self.op_tsc(memory),
+            0xEB => self.op_xba(memory),
+            
+            // Phase 3: Bank Register Stack Operations
+            0x8B => self.op_phb(memory),
+            0x0B => self.op_phd(memory),
+            0x4B => self.op_phk(memory),
+            0xAB => self.op_plb(memory),
+            0x2B => self.op_pld(memory),
+            
+            // Phase 3: Push Effective Address
+            0xF4 => self.op_pea(memory),
+            0xD4 => self.op_pei(memory),
+            0x62 => self.op_per(memory),
+            
+            // Phase 3: Long Jumps
+            0x5C => self.op_jml_absolute_long(memory),
+            0xDC => self.op_jml_indirect(memory),
+            0x22 => self.op_jsl(memory),
+            0x6B => self.op_rtl(memory),
+            
+            // Phase 3: Interrupts
+            0x00 => self.op_brk(memory),
+            0x02 => self.op_cop(memory),
+            0x40 => self.op_rti(memory),
+            
+            // Phase 3: Block Moves
+            0x44 => self.op_mvp(memory),
+            0x54 => self.op_mvn(memory),
+            
             _ => {
                 // Unknown opcode - treat as NOP for now
                 2
@@ -504,6 +545,76 @@ impl Cpu65816 {
     #[inline]
     fn addr_absolute_y(&mut self, memory: &Memory) -> u32 {
         let addr = self.fetch_word(memory).wrapping_add(self.y);
+        ((self.dbr as u32) << 16) | (addr as u32)
+    }
+    
+    // ===== ADVANCED ADDRESSING MODES - PHASE 3 =====
+    
+    #[inline]
+    fn addr_absolute_long(&mut self, memory: &Memory) -> u32 {
+        let addr_lo = self.fetch_word(memory);
+        let addr_hi = self.fetch_byte(memory);
+        ((addr_hi as u32) << 16) | (addr_lo as u32)
+    }
+    
+    #[inline]
+    fn addr_absolute_long_x(&mut self, memory: &Memory) -> u32 {
+        let addr_lo = self.fetch_word(memory);
+        let addr_hi = self.fetch_byte(memory);
+        let addr = ((addr_hi as u32) << 16) | (addr_lo as u32);
+        addr.wrapping_add(self.x as u32)
+    }
+    
+    #[inline]
+    fn addr_direct_indirect(&mut self, memory: &Memory) -> u32 {
+        let dp_addr = self.addr_direct_page(memory);
+        let addr = memory.read_word(dp_addr);
+        ((self.dbr as u32) << 16) | (addr as u32)
+    }
+    
+    #[inline]
+    fn addr_direct_indirect_indexed(&mut self, memory: &Memory) -> u32 {
+        let dp_addr = self.addr_direct_page(memory);
+        let addr = memory.read_word(dp_addr).wrapping_add(self.y);
+        ((self.dbr as u32) << 16) | (addr as u32)
+    }
+    
+    #[inline]
+    fn addr_direct_indexed_indirect(&mut self, memory: &Memory) -> u32 {
+        let offset = self.fetch_byte(memory) as u16;
+        let dp_addr = self.d.wrapping_add(offset).wrapping_add(self.x);
+        let addr = memory.read_word(dp_addr as u32);
+        ((self.dbr as u32) << 16) | (addr as u32)
+    }
+    
+    #[inline]
+    fn addr_direct_indirect_long(&mut self, memory: &Memory) -> u32 {
+        let dp_addr = self.addr_direct_page(memory);
+        let addr_lo = memory.read_word(dp_addr);
+        let addr_hi = memory.read(dp_addr.wrapping_add(2));
+        ((addr_hi as u32) << 16) | (addr_lo as u32)
+    }
+    
+    #[inline]
+    fn addr_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u32 {
+        let dp_addr = self.addr_direct_page(memory);
+        let addr_lo = memory.read_word(dp_addr);
+        let addr_hi = memory.read(dp_addr.wrapping_add(2));
+        let addr = ((addr_hi as u32) << 16) | (addr_lo as u32);
+        addr.wrapping_add(self.y as u32)
+    }
+    
+    #[inline]
+    fn addr_stack_relative(&mut self, memory: &Memory) -> u32 {
+        let offset = self.fetch_byte(memory) as u16;
+        self.s.wrapping_add(offset) as u32
+    }
+    
+    #[inline]
+    fn addr_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u32 {
+        let offset = self.fetch_byte(memory) as u16;
+        let sp_addr = self.s.wrapping_add(offset);
+        let addr = memory.read_word(sp_addr as u32).wrapping_add(self.y);
         ((self.dbr as u32) << 16) | (addr as u32)
     }
     
@@ -2851,6 +2962,364 @@ impl Cpu65816 {
         }
         2
     }
+    
+    // ===== PROCESSOR CONTROL - PHASE 3 =====
+    
+    // REP - Reset Processor Status Bits
+    #[inline]
+    fn op_rep(&mut self, memory: &Memory) -> u8 {
+        let mask = self.fetch_byte(memory);
+        let current = self.p.to_byte();
+        let new_value = current & !mask;
+        self.p.from_byte(new_value);
+        3
+    }
+    
+    // SEP - Set Processor Status Bits
+    #[inline]
+    fn op_sep(&mut self, memory: &Memory) -> u8 {
+        let mask = self.fetch_byte(memory);
+        let current = self.p.to_byte();
+        let new_value = current | mask;
+        self.p.from_byte(new_value);
+        3
+    }
+    
+    // XCE - Exchange Carry and Emulation Flags
+    #[inline]
+    fn op_xce(&mut self, _memory: &Memory) -> u8 {
+        let old_c = self.p.c;
+        self.p.c = self.p.e;
+        self.p.e = old_c;
+        
+        // When switching to emulation mode
+        if self.p.e {
+            self.p.m = true;
+            self.p.x = true;
+            self.s = (self.s & 0xFF) | 0x0100; // Force stack to page 1
+        }
+        2
+    }
+    
+    // WAI - Wait for Interrupt
+    #[inline]
+    fn op_wai(&mut self, _memory: &Memory) -> u8 {
+        self.waiting = true;
+        3
+    }
+    
+    // STP - Stop the Processor
+    #[inline]
+    fn op_stp(&mut self, _memory: &Memory) -> u8 {
+        self.stopped = true;
+        3
+    }
+    
+    // ===== 16-BIT REGISTER TRANSFERS - PHASE 3 =====
+    
+    // TCD - Transfer A to Direct Page
+    #[inline]
+    fn op_tcd(&mut self, _memory: &Memory) -> u8 {
+        self.d = self.a;
+        self.update_nz_16(self.d);
+        2
+    }
+    
+    // TCS - Transfer A to Stack Pointer
+    #[inline]
+    fn op_tcs(&mut self, _memory: &Memory) -> u8 {
+        if self.p.e {
+            // Emulation mode: keep high byte as $01
+            self.s = (self.a & 0xFF) | 0x0100;
+        } else {
+            self.s = self.a;
+        }
+        2
+    }
+    
+    // TDC - Transfer Direct Page to A
+    #[inline]
+    fn op_tdc(&mut self, _memory: &Memory) -> u8 {
+        self.a = self.d;
+        self.update_nz_16(self.a);
+        2
+    }
+    
+    // TSC - Transfer Stack Pointer to A
+    #[inline]
+    fn op_tsc(&mut self, _memory: &Memory) -> u8 {
+        self.a = self.s;
+        self.update_nz_16(self.a);
+        2
+    }
+    
+    // XBA - Exchange B and A (swap high/low bytes of A)
+    #[inline]
+    fn op_xba(&mut self, _memory: &Memory) -> u8 {
+        self.a = ((self.a & 0xFF) << 8) | ((self.a >> 8) & 0xFF);
+        self.update_nz_8((self.a & 0xFF) as u8);
+        3
+    }
+    
+    // ===== BANK REGISTER STACK OPERATIONS - PHASE 3 =====
+    
+    // PHB - Push Data Bank Register
+    #[inline]
+    fn op_phb(&mut self, memory: &mut Memory) -> u8 {
+        self.push_byte(memory, self.dbr);
+        3
+    }
+    
+    // PHD - Push Direct Page Register
+    #[inline]
+    fn op_phd(&mut self, memory: &mut Memory) -> u8 {
+        self.push_word(memory, self.d);
+        4
+    }
+    
+    // PHK - Push Program Bank Register
+    #[inline]
+    fn op_phk(&mut self, memory: &mut Memory) -> u8 {
+        self.push_byte(memory, self.pbr);
+        3
+    }
+    
+    // PLB - Pull Data Bank Register
+    #[inline]
+    fn op_plb(&mut self, memory: &mut Memory) -> u8 {
+        self.dbr = self.pull_byte(memory);
+        self.update_nz_8(self.dbr);
+        4
+    }
+    
+    // PLD - Pull Direct Page Register
+    #[inline]
+    fn op_pld(&mut self, memory: &mut Memory) -> u8 {
+        self.d = self.pull_word(memory);
+        self.update_nz_16(self.d);
+        5
+    }
+    
+    // ===== PUSH EFFECTIVE ADDRESS - PHASE 3 =====
+    
+    // PEA - Push Effective Absolute Address
+    #[inline]
+    fn op_pea(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.fetch_word(memory);
+        self.push_word(memory, addr);
+        5
+    }
+    
+    // PEI - Push Effective Indirect Address (Direct Page Indirect)
+    #[inline]
+    fn op_pei(&mut self, memory: &mut Memory) -> u8 {
+        let dp_offset = self.fetch_byte(memory) as u16;
+        let dp_addr = self.d.wrapping_add(dp_offset);
+        let addr = memory.read_word(dp_addr as u32);
+        self.push_word(memory, addr);
+        6
+    }
+    
+    // PER - Push Effective PC Relative Address
+    #[inline]
+    fn op_per(&mut self, memory: &mut Memory) -> u8 {
+        let offset = self.fetch_word(memory) as i16;
+        let addr = (self.pc as i32 + offset as i32) as u16;
+        self.push_word(memory, addr);
+        6
+    }
+    
+    // ===== LONG JUMPS - PHASE 3 =====
+    
+    // JML - Jump Long
+    #[inline]
+    fn op_jml_absolute_long(&mut self, memory: &Memory) -> u8 {
+        let addr_lo = self.fetch_word(memory);
+        let addr_hi = self.fetch_byte(memory);
+        self.pc = addr_lo;
+        self.pbr = addr_hi;
+        4
+    }
+    
+    // JML - Jump Long Indirect
+    #[inline]
+    fn op_jml_indirect(&mut self, memory: &Memory) -> u8 {
+        let ptr = self.fetch_word(memory);
+        let addr_lo = memory.read_word(ptr as u32);
+        let addr_hi = memory.read((ptr.wrapping_add(2)) as u32);
+        self.pc = addr_lo;
+        self.pbr = addr_hi;
+        6
+    }
+    
+    // JSL - Jump to Subroutine Long
+    #[inline]
+    fn op_jsl(&mut self, memory: &mut Memory) -> u8 {
+        let addr_lo = self.fetch_word(memory);
+        let addr_hi = self.fetch_byte(memory);
+        
+        // Push return address - 1 (24-bit: PBR, PC-1)
+        self.push_byte(memory, self.pbr);
+        let return_addr = self.pc.wrapping_sub(1);
+        self.push_word(memory, return_addr);
+        
+        self.pc = addr_lo;
+        self.pbr = addr_hi;
+        8
+    }
+    
+    // RTL - Return from Subroutine Long
+    #[inline]
+    fn op_rtl(&mut self, memory: &mut Memory) -> u8 {
+        let addr = self.pull_word(memory);
+        let bank = self.pull_byte(memory);
+        self.pc = addr.wrapping_add(1);
+        self.pbr = bank;
+        6
+    }
+    
+    // ===== INTERRUPTS - PHASE 3 =====
+    
+    // BRK - Break
+    #[inline]
+    fn op_brk(&mut self, memory: &mut Memory) -> u8 {
+        self.fetch_byte(memory); // Skip signature byte
+        
+        if self.p.e {
+            // Emulation mode: 6502-style
+            self.push_word(memory, self.pc);
+            self.push_byte(memory, self.p.to_byte() | 0x10); // B flag set
+            self.p.i = true;
+            self.p.d = false;
+            
+            // Read IRQ vector at $FFFE-$FFFF
+            let vector = memory.read_word(0x00FFFE);
+            self.pc = vector;
+        } else {
+            // Native mode: 65816-style
+            self.push_byte(memory, self.pbr);
+            self.push_word(memory, self.pc);
+            self.push_byte(memory, self.p.to_byte());
+            self.p.i = true;
+            self.p.d = false;
+            
+            // Read BRK vector at $00FFE6-$00FFE7
+            let vector = memory.read_word(0x00FFE6);
+            self.pc = vector;
+            self.pbr = 0;
+        }
+        
+        if self.p.e { 7 } else { 8 }
+    }
+    
+    // COP - Coprocessor
+    #[inline]
+    fn op_cop(&mut self, memory: &mut Memory) -> u8 {
+        self.fetch_byte(memory); // Skip signature byte
+        
+        if self.p.e {
+            // Emulation mode
+            self.push_word(memory, self.pc);
+            self.push_byte(memory, self.p.to_byte());
+            self.p.i = true;
+            self.p.d = false;
+            
+            // Read COP vector at $FFF4-$FFF5
+            let vector = memory.read_word(0x00FFF4);
+            self.pc = vector;
+        } else {
+            // Native mode
+            self.push_byte(memory, self.pbr);
+            self.push_word(memory, self.pc);
+            self.push_byte(memory, self.p.to_byte());
+            self.p.i = true;
+            self.p.d = false;
+            
+            // Read COP vector at $00FFE4-$00FFE5
+            let vector = memory.read_word(0x00FFE4);
+            self.pc = vector;
+            self.pbr = 0;
+        }
+        
+        if self.p.e { 7 } else { 8 }
+    }
+    
+    // RTI - Return from Interrupt
+    #[inline]
+    fn op_rti(&mut self, memory: &mut Memory) -> u8 {
+        if self.p.e {
+            // Emulation mode
+            let flags = self.pull_byte(memory);
+            self.p.from_byte(flags);
+            self.pc = self.pull_word(memory);
+            7
+        } else {
+            // Native mode
+            let flags = self.pull_byte(memory);
+            self.p.from_byte(flags);
+            self.pc = self.pull_word(memory);
+            self.pbr = self.pull_byte(memory);
+            7
+        }
+    }
+    
+    // ===== BLOCK MOVES - PHASE 3 =====
+    
+    // MVP - Block Move Previous (decrement)
+    #[inline]
+    fn op_mvp(&mut self, memory: &mut Memory) -> u8 {
+        let dest_bank = self.fetch_byte(memory);
+        let src_bank = self.fetch_byte(memory);
+        
+        // Move one byte
+        let src_addr = ((src_bank as u32) << 16) | (self.x as u32);
+        let dest_addr = ((dest_bank as u32) << 16) | (self.y as u32);
+        let value = memory.read(src_addr);
+        memory.write(dest_addr, value);
+        
+        // Update registers
+        self.x = self.x.wrapping_sub(1);
+        self.y = self.y.wrapping_sub(1);
+        self.a = self.a.wrapping_sub(1);
+        
+        // DBR is set to destination bank
+        self.dbr = dest_bank;
+        
+        // If A != $FFFF, repeat (decrement PC to re-execute)
+        if self.a != 0xFFFF {
+            self.pc = self.pc.wrapping_sub(3);
+        }
+        
+        7
+    }
+    
+    // MVN - Block Move Next (increment)
+    #[inline]
+    fn op_mvn(&mut self, memory: &mut Memory) -> u8 {
+        let dest_bank = self.fetch_byte(memory);
+        let src_bank = self.fetch_byte(memory);
+        
+        // Move one byte
+        let src_addr = ((src_bank as u32) << 16) | (self.x as u32);
+        let dest_addr = ((dest_bank as u32) << 16) | (self.y as u32);
+        let value = memory.read(src_addr);
+        memory.write(dest_addr, value);
+        
+        // Update registers
+        self.x = self.x.wrapping_add(1);
+        self.y = self.y.wrapping_add(1);
+        self.a = self.a.wrapping_sub(1);
+        
+        // DBR is set to destination bank
+        self.dbr = dest_bank;
+        
+        // If A != $FFFF, repeat (decrement PC to re-execute)
+        if self.a != 0xFFFF {
+            self.pc = self.pc.wrapping_sub(3);
+        }
+        
+        7
+    }
 }
 
 impl Default for Cpu65816 {
@@ -3699,5 +4168,371 @@ mod tests {
         assert_eq!(cpu.a, 0x0034);
         assert!(!cpu.p.z);
         assert!(!cpu.p.n);
+    }
+    
+    // ===== PHASE 3 TESTS =====
+    
+    #[test]
+    fn test_rep_instruction() {
+        let code = vec![0xC2, 0x30]; // REP #$30 (clear M and X flags)
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = true;
+        cpu.p.x = true;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert!(!cpu.p.m); // Cleared
+        assert!(!cpu.p.x); // Cleared
+    }
+    
+    #[test]
+    fn test_sep_instruction() {
+        let code = vec![0xE2, 0x30]; // SEP #$30 (set M and X flags)
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.m = false;
+        cpu.p.x = false;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert!(cpu.p.m); // Set
+        assert!(cpu.p.x); // Set
+    }
+    
+    #[test]
+    fn test_xce_to_emulation() {
+        let code = vec![0xFB]; // XCE
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.e = false;
+        cpu.p.c = true;
+        cpu.s = 0x1FFF;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert!(cpu.p.e); // Switched to emulation mode
+        assert!(!cpu.p.c); // Old E flag moved to C
+        assert!(cpu.p.m); // Forced to 8-bit
+        assert!(cpu.p.x); // Forced to 8-bit
+        assert_eq!(cpu.s, 0x01FF); // Stack forced to page 1
+    }
+    
+    #[test]
+    fn test_xce_to_native() {
+        let code = vec![0xFB]; // XCE
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.e = true;
+        cpu.p.c = false;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert!(!cpu.p.e); // Switched to native mode
+        assert!(cpu.p.c); // Old E flag moved to C
+    }
+    
+    #[test]
+    fn test_tcd() {
+        let code = vec![0x5B]; // TCD
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.a = 0x1234;
+        cpu.d = 0;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.d, 0x1234);
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+    }
+    
+    #[test]
+    fn test_tcs() {
+        let code = vec![0x1B]; // TCS
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.a = 0x1FFF;
+        cpu.s = 0;
+        cpu.p.e = false; // Native mode
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.s, 0x1FFF);
+    }
+    
+    #[test]
+    fn test_tcs_emulation_mode() {
+        let code = vec![0x1B]; // TCS
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.a = 0x1FFF;
+        cpu.s = 0;
+        cpu.p.e = true; // Emulation mode
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.s, 0x01FF); // High byte forced to $01
+    }
+    
+    #[test]
+    fn test_tdc() {
+        let code = vec![0x7B]; // TDC
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.d = 0x1234;
+        cpu.a = 0;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a, 0x1234);
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+    }
+    
+    #[test]
+    fn test_tsc() {
+        let code = vec![0x3B]; // TSC
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.s = 0x1FFF;
+        cpu.a = 0;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a, 0x1FFF);
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n);
+    }
+    
+    #[test]
+    fn test_xba() {
+        let code = vec![0xEB]; // XBA
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.a = 0x1234;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.a, 0x3412); // Bytes swapped
+        assert!(!cpu.p.z);
+        assert!(!cpu.p.n); // Based on low byte ($12)
+    }
+    
+    #[test]
+    fn test_phb_plb() {
+        let code = vec![
+            0x8B, // PHB
+            0xAB, // PLB
+        ];
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.dbr = 0x42;
+        cpu.s = 0x01FF;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory); // PHB
+        assert_eq!(cpu.s, 0x01FE);
+        
+        cpu.dbr = 0; // Change it
+        cpu.step(&mut memory); // PLB
+        
+        assert_eq!(cpu.dbr, 0x42); // Restored
+        assert_eq!(cpu.s, 0x01FF);
+    }
+    
+    #[test]
+    fn test_phd_pld() {
+        let code = vec![
+            0x0B, // PHD
+            0x2B, // PLD
+        ];
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.d = 0x1234;
+        cpu.s = 0x01FF;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory); // PHD
+        assert_eq!(cpu.s, 0x01FD);
+        
+        cpu.d = 0; // Change it
+        cpu.step(&mut memory); // PLD
+        
+        assert_eq!(cpu.d, 0x1234); // Restored
+        assert_eq!(cpu.s, 0x01FF);
+    }
+    
+    #[test]
+    fn test_phk() {
+        let code = vec![0x4B]; // PHK
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.s = 0x01FF;
+        cpu.pc = 0x8000;
+        cpu.pbr = 0; // Will push PBR (bank 0)
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.s, 0x01FE);
+        // Verify value on stack
+        let value = memory.read(0x0001FF);
+        assert_eq!(value, 0x00); // Bank 0
+    }
+    
+    #[test]
+    fn test_pea() {
+        let code = vec![0xF4, 0x34, 0x12]; // PEA $1234
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.s = 0x01FF;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.s, 0x01FD);
+        let value = memory.read_word(0x0001FE);
+        assert_eq!(value, 0x1234);
+    }
+    
+    #[test]
+    fn test_jml_absolute_long() {
+        let code = vec![0x5C, 0x34, 0x12, 0x42]; // JML $421234
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.pc = 0x8000;
+        cpu.pbr = 0;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.pc, 0x1234);
+        assert_eq!(cpu.pbr, 0x42);
+    }
+    
+    #[test]
+    fn test_jsl_rtl() {
+        let code = vec![
+            0x22, 0x05, 0x80, 0x00, // JSL $008005
+            0xEA,                    // NOP
+            0x6B,                    // RTL (at $8005)
+        ];
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.pc = 0x8000;
+        cpu.pbr = 0;
+        cpu.s = 0x01FF;
+        
+        cpu.step(&mut memory); // JSL
+        assert_eq!(cpu.pc, 0x8005);
+        assert_eq!(cpu.pbr, 0x00);
+        assert_eq!(cpu.s, 0x01FC); // Pushed 3 bytes (PBR + return addr)
+        
+        cpu.step(&mut memory); // RTL
+        assert_eq!(cpu.pc, 0x8004); // Returns to byte after JSL
+        assert_eq!(cpu.pbr, 0x00);
+        assert_eq!(cpu.s, 0x01FF);
+    }
+    
+    #[test]
+    fn test_brk_emulation_mode() {
+        // Create a ROM with BRK and a proper IRQ vector
+        let mut rom = vec![0; 0x8000];
+        let header_offset = 0x7FC0;
+        
+        // Set up ROM header
+        let title = b"TEST ROM             ";
+        rom[header_offset..header_offset + 21].copy_from_slice(title);
+        rom[header_offset + 0x15] = 0x20;
+        rom[header_offset + 0x16] = 0x00;
+        rom[header_offset + 0x17] = 0x08;
+        rom[header_offset + 0x18] = 0x00;
+        rom[header_offset + 0x19] = 0x01;
+        rom[header_offset + 0x1C] = 0xFF;
+        rom[header_offset + 0x1D] = 0xFF;
+        rom[header_offset + 0x1E] = 0x00;
+        rom[header_offset + 0x1F] = 0x00;
+        
+        // Place BRK instruction at ROM offset 0
+        rom[0] = 0x00; // BRK
+        rom[1] = 0x00; // Signature byte
+        
+        // Set IRQ vector at offset $7FFE (maps to $00:FFFE in LoROM)
+        rom[0x7FFE] = 0x10; // IRQ vector low byte
+        rom[0x7FFF] = 0x90; // IRQ vector high byte -> $9010
+        
+        let cartridge = Cartridge::from_rom(rom).unwrap();
+        let mut memory = Memory::new(&cartridge);
+        let mut cpu = Cpu65816::new();
+        
+        cpu.p.e = true;
+        cpu.p.i = false;
+        cpu.pc = 0x8000;
+        cpu.pbr = 0;
+        cpu.s = 0x01FF;
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.pc, 0x9010); // Jumped to IRQ vector
+        assert!(cpu.p.i); // I flag set
+        assert!(!cpu.p.d); // D flag cleared
+        assert_eq!(cpu.s, 0x01FC); // Pushed 3 bytes
+    }
+    
+    #[test]
+    fn test_rti_emulation_mode() {
+        let code = vec![0x40]; // RTI
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.p.e = true;
+        cpu.s = 0x01FC;
+        cpu.pc = 0x8000;
+        
+        // Set up stack with return state
+        memory.write(0x0001FD, 0x30); // Status flags
+        memory.write_word(0x0001FE, 0x8042); // Return address
+        
+        cpu.step(&mut memory);
+        
+        assert_eq!(cpu.pc, 0x8042);
+        assert_eq!(cpu.s, 0x01FF);
+        // Check some flags were restored
+        assert!(cpu.p.m);
+        assert!(cpu.p.x);
+    }
+    
+    #[test]
+    fn test_wai() {
+        let code = vec![0xCB]; // WAI
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.waiting = false;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert!(cpu.waiting);
+    }
+    
+    #[test]
+    fn test_stp() {
+        let code = vec![0xDB]; // STP
+        let (mut cpu, mut memory) = create_test_system_with_code(&code);
+        
+        cpu.stopped = false;
+        cpu.pc = 0x8000;
+        
+        cpu.step(&mut memory);
+        
+        assert!(cpu.stopped);
     }
 }
