@@ -1,5 +1,8 @@
 use wasm_bindgen::prelude::*;
 
+pub mod cartridge;
+pub mod memory;
+
 #[wasm_bindgen]
 pub fn greet(name: &str) -> String {
     format!("Hello, {}! Welcome to ZNES-WASM!", name)
