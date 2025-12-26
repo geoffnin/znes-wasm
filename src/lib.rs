@@ -5,6 +5,10 @@ pub mod memory;
 pub mod cpu;
 pub mod ppu;
 pub mod emulator;
+pub mod apu;
+
+#[cfg(test)]
+mod apu_tests;
 
 #[wasm_bindgen]
 pub fn greet(name: &str) -> String {
