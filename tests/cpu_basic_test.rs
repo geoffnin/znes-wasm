@@ -8,6 +8,7 @@
 use znes_wasm::cpu::Cpu65816;
 use znes_wasm::memory::Memory;
 use znes_wasm::cartridge::Cartridge;
+use znes_wasm::emulator::Emulator;
 
 // ============================================================================
 // OPCODE CONSTANTS
@@ -155,6 +156,224 @@ pub const TEST_METADATA: &[TestInfo] = &[
         expected_cycles: 16,
     },
 ];
+
+// ============================================================================
+// TEST HARNESS STRUCTURES
+// ============================================================================
+
+/// Individual test result
+#[derive(Debug, Clone)]
+pub struct TestResult {
+    pub test_id: usize,
+    pub expected: u32,
+    pub actual: u32,
+    pub passed: bool,
+}
+
+/// Complete test results with diagnostics
+#[derive(Debug)]
+pub struct TestResults {
+    pub results: Vec<TestResult>,
+    pub total_cycles: u64,
+    pub stopped_normally: bool,
+    pub final_pc: u16,
+    pub final_pbr: u8,
+}
+
+impl TestResults {
+    pub fn passed_count(&self) -> usize {
+        self.results.iter().filter(|r| r.passed).count()
+    }
+    
+    pub fn failed_count(&self) -> usize {
+        self.results.iter().filter(|r| !r.passed).count()
+    }
+}
+
+/// CPU state snapshot for diagnostics
+#[derive(Debug, Clone)]
+pub struct CpuState {
+    pub a: u16,
+    pub x: u16,
+    pub y: u16,
+    pub sp: u16,
+    pub pc: u16,
+    pub pbr: u8,
+    pub dbr: u8,
+    pub p: u8,
+    pub cycles: u64,
+    pub n: bool,
+    pub v: bool,
+    pub m: bool,
+    pub x_flag: bool,
+    pub d: bool,
+    pub i: bool,
+    pub z: bool,
+    pub c: bool,
+}
+
+// ============================================================================
+// TEST HARNESS FUNCTIONS
+// ============================================================================
+
+/// Run a test ROM and collect results from memory $7E0000-$7E00C7
+/// Steps until STP detected (PC unchanged for 3+ steps) or 15,000 cycle limit
+/// Compares actual values against expectations
+pub fn run_test_rom(rom: Vec<u8>, expectations: Vec<(usize, u8)>) -> TestResults {
+    let mut emulator = Emulator::new();
+    
+    // Load ROM
+    emulator.load_rom(&rom).expect("Failed to load ROM");
+    
+    // Track PC to detect STP
+    let mut last_pc = 0xFFFF;
+    let mut pc_unchanged_count = 0;
+    const MAX_CYCLES: u64 = 15000;
+    const PC_UNCHANGED_THRESHOLD: u32 = 3;
+    
+    // Step until stopped or cycle limit
+    loop {
+        let cpu = emulator.cpu();
+        let current_pc = cpu.pc;
+        let current_cycles = cpu.cycles;
+        
+        // Check if stopped (PC unchanged for multiple steps)
+        if current_pc == last_pc {
+            pc_unchanged_count += 1;
+            if pc_unchanged_count >= PC_UNCHANGED_THRESHOLD {
+                break;
+            }
+        } else {
+            pc_unchanged_count = 0;
+            last_pc = current_pc;
+        }
+        
+        // Check cycle limit
+        if current_cycles >= MAX_CYCLES {
+            break;
+        }
+        
+        // Step CPU
+        emulator.step();
+    }
+    
+    // Collect test results from memory based on expectations
+    let mut results = Vec::new();
+    let memory = emulator.memory_mut().expect("Memory not initialized");
+    
+    for (test_id, (addr, expected)) in expectations.iter().enumerate() {
+        // Direct page addresses map to $7E0000+
+        let full_addr = 0x7E0000 + (*addr as u32);
+        let actual = memory.read(full_addr);
+        
+        results.push(TestResult {
+            test_id,
+            expected: *expected as u32,
+            actual: actual as u32,
+            passed: actual == *expected,
+        });
+    }
+    
+    let cpu = emulator.cpu();
+    TestResults {
+        results,
+        total_cycles: cpu.cycles,
+        stopped_normally: pc_unchanged_count >= PC_UNCHANGED_THRESHOLD,
+        final_pc: cpu.pc,
+        final_pbr: cpu.pbr,
+    }
+}
+
+/// Capture current CPU state for diagnostics
+pub fn capture_cpu_state(emulator: &Emulator) -> CpuState {
+    let cpu = emulator.cpu();
+    CpuState {
+        a: cpu.a,
+        x: cpu.x,
+        y: cpu.y,
+        sp: cpu.s,
+        pc: cpu.pc,
+        pbr: cpu.pbr,
+        dbr: cpu.dbr,
+        p: cpu.p.to_byte(),
+        cycles: cpu.cycles,
+        n: cpu.p.n,
+        v: cpu.p.v,
+        m: cpu.p.m,
+        x_flag: cpu.p.x,
+        d: cpu.p.d,
+        i: cpu.p.i,
+        z: cpu.p.z,
+        c: cpu.p.c,
+    }
+}
+
+/// Format CPU state for diagnostic output
+pub fn format_cpu_state(state: &CpuState) -> String {
+    format!(
+        "A=${:04X} X=${:04X} Y=${:04X} SP=${:04X} PC=${:02X}:{:04X} P={:08b} (N={} V={} M={} X={} D={} I={} Z={} C={})",
+        state.a,
+        state.x,
+        state.y,
+        state.sp,
+        state.pbr,
+        state.pc,
+        state.p,
+        if state.n { 1 } else { 0 },
+        if state.v { 1 } else { 0 },
+        if state.m { 1 } else { 0 },
+        if state.x_flag { 1 } else { 0 },
+        if state.d { 1 } else { 0 },
+        if state.i { 1 } else { 0 },
+        if state.z { 1 } else { 0 },
+        if state.c { 1 } else { 0 }
+    )
+}
+
+/// Get 32-byte memory context window around an address
+pub fn get_memory_context(emulator: &mut Emulator, addr: u32) -> Vec<u8> {
+    let memory = emulator.memory_mut().expect("Memory not initialized");
+    let start = addr.saturating_sub(16);
+    let mut context = Vec::new();
+    for i in 0..32 {
+        context.push(memory.read(start + i));
+    }
+    context
+}
+
+/// Format memory context for display
+pub fn format_memory_context(addr: u32, context: &[u8]) -> String {
+    let start = addr.saturating_sub(16);
+    let mut lines = Vec::new();
+    
+    for chunk in 0..2 {
+        let offset = (chunk * 16) as usize;
+        let chunk_addr = start + (chunk * 16);
+        let bytes: Vec<String> = context[offset..offset + 16]
+            .iter()
+            .map(|b| format!("{:02X}", b))
+            .collect();
+        
+        lines.push(format!("  ${:06X}: {}", chunk_addr, bytes.join(" ")));
+    }
+    
+    lines.join("\n")
+}
+
+/// Get instruction bytes at PC
+pub fn get_instruction_bytes(emulator: &mut Emulator, pc: u32, count: usize) -> Vec<u8> {
+    let memory = emulator.memory_mut().expect("Memory not initialized");
+    let mut bytes = Vec::new();
+    for i in 0..count {
+        bytes.push(memory.read(pc + i as u32));
+    }
+    bytes
+}
+
+/// Format instruction bytes for display
+pub fn format_instruction_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" ")
+}
 
 // ============================================================================
 // ROM BUILDER
@@ -1425,5 +1644,138 @@ mod tests {
         // Assert that most tests pass - this will expose implementation issues
         assert!(passed >= 60, "Expected at least 60 tests to pass, got {}. \
                 This indicates CPU implementation issues that need to be fixed.", passed);
+    }
+    
+    /// Comprehensive CPU diagnostic test with detailed failure reporting
+    /// Tests CPU functionality with detailed state dumps for debugging
+    #[test]
+    fn test_cpu_basic_rom() {
+        println!("\n════════════════════════════════════════════════════════════");
+        println!("  CPU BASIC ROM TEST WITH DETAILED DIAGNOSTICS");
+        println!("════════════════════════════════════════════════════════════\n");
+        
+        // Build the test ROM
+        let rom = build_comprehensive_test_rom();
+        let expectations = get_comprehensive_test_expectations();
+        
+        println!("📦 ROM Information:");
+        println!("   Size: {} KB", rom.len() / 1024);
+        println!("   Reset Vector: ${:02X}{:02X}", rom[0x7FFD], rom[0x7FFC]);
+        println!("   Test Count: {}", expectations.len());
+        println!();
+        
+        // Run the test ROM
+        let results = run_test_rom(rom, expectations.clone());
+        
+        println!("⏱️  Execution Summary:");
+        println!("   Total Cycles: {}", results.total_cycles);
+        println!("   Stopped Normally: {}", results.stopped_normally);
+        println!("   Final PC: ${:02X}:{:04X}", results.final_pbr, results.final_pc);
+        println!("   Tests Passed: {}/{}", results.passed_count(), results.results.len());
+        println!("   Tests Failed: {}", results.failed_count());
+        println!();
+        
+        // Track failures for detailed reporting
+        let mut has_failures = false;
+        
+        // Iterate through results and report failures
+        for result in &results.results {
+            if !result.passed {
+                has_failures = true;
+                let test_id = result.test_id;
+                
+                println!("════════════════════════════════════════════════════════════");
+                println!("❌ TEST FAILURE: #{}", test_id);
+                println!("════════════════════════════════════════════════════════════");
+                
+                // Print test metadata if available
+                if test_id < TEST_METADATA.len() {
+                    println!("📝 Test Name: {}", TEST_METADATA[test_id].name);
+                    println!("📋 Description: {}", TEST_METADATA[test_id].description);
+                } else {
+                    println!("📝 Test Name: Test #{}", test_id);
+                    println!("📋 Description: (metadata not available)");
+                }
+                
+                println!();
+                println!("💾 Test Results:");
+                println!("   Expected: ${:02X}", result.expected);
+                println!("   Actual:   ${:02X}", result.actual);
+                println!("   Diff:     ${:02X}", result.expected ^ result.actual);
+                println!();
+                
+                // Get the memory address for this test
+                let (test_addr_offset, _) = expectations[test_id];
+                let test_addr = 0x7E0000 + test_addr_offset as u32;
+                
+                // For detailed diagnostics, we need to re-run to the failure point
+                // This is expensive but necessary for debugging
+                println!("🔍 CPU State at Failure:");
+                let diagnostic_rom = build_comprehensive_test_rom();
+                let mut emulator = Emulator::new();
+                emulator.load_rom(&diagnostic_rom).expect("Failed to load ROM");
+                
+                // Run until near the failure point (simplified - runs full test)
+                let mut last_pc = 0xFFFF;
+                let mut pc_unchanged = 0;
+                for _ in 0..15000 {
+                    let cpu = emulator.cpu();
+                    let current_pc = cpu.pc;
+                    
+                    if current_pc == last_pc {
+                        pc_unchanged += 1;
+                        if pc_unchanged >= 3 {
+                            break;
+                        }
+                    } else {
+                        pc_unchanged = 0;
+                        last_pc = current_pc;
+                    }
+                    
+                    emulator.step();
+                }
+                
+                // Capture and display CPU state
+                let cpu_state = capture_cpu_state(&emulator);
+                println!("   {}", format_cpu_state(&cpu_state));
+                println!();
+                
+                // Show memory context around the test result location
+                println!("📍 Memory Context (Test Result at ${:06X}):", test_addr);
+                let context = get_memory_context(&mut emulator, test_addr);
+                println!("{}", format_memory_context(test_addr, &context));
+                println!();
+                
+                // Show instruction bytes at failure location
+                let pc_addr = ((cpu_state.pbr as u32) << 16) | (cpu_state.pc as u32);
+                let instr_bytes = get_instruction_bytes(&mut emulator, pc_addr, 8);
+                println!("📜 Instruction Bytes at PC (${:06X}):", pc_addr);
+                println!("   {}", format_instruction_bytes(&instr_bytes));
+                println!();
+                
+                println!("⏱️  Total Cycles: {}", cpu_state.cycles);
+                println!("════════════════════════════════════════════════════════════\n");
+            }
+        }
+        
+        // Final summary
+        if !has_failures {
+            println!("✅ All tests passed!");
+        } else {
+            println!("════════════════════════════════════════════════════════════");
+            println!("❌ FINAL SUMMARY");
+            println!("════════════════════════════════════════════════════════════");
+            println!("   Total Tests: {}", results.results.len());
+            println!("   Passed: {} ✅", results.passed_count());
+            println!("   Failed: {} ❌", results.failed_count());
+            println!("   Success Rate: {:.1}%", 
+                     (results.passed_count() as f64 / results.results.len() as f64) * 100.0);
+            println!("════════════════════════════════════════════════════════════\n");
+        }
+        
+        // Assert that all tests pass
+        assert_eq!(results.failed_count(), 0, 
+                   "Expected all tests to pass, but {} test(s) failed. See detailed diagnostics above.",
+                   results.failed_count());
     }
 }
