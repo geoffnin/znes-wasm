@@ -19,6 +19,7 @@ use super::CoProcessor;
 
 /// SA-1 Communication Registers
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 struct Sa1Registers {
     // Control registers
     ccnt: u8,           // 0x2200: SA-1 Control

@@ -20,6 +20,7 @@ use super::CoProcessor;
 /// SuperFX Instruction Opcodes (partial set)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
+#[allow(dead_code)]
 enum SuperFxOp {
     // ALU Operations
     Add = 0x50,      // ADD Rn - Add to R0
@@ -156,12 +157,14 @@ impl SuperFx {
 
     /// Get source/destination register (R12)
     #[inline]
+    #[allow(dead_code)]
     fn sreg(&self) -> u16 {
         self.r[12]
     }
 
     /// Get destination register (R13)
     #[inline]
+    #[allow(dead_code)]
     fn dreg(&self) -> u16 {
         self.r[13]
     }

@@ -75,6 +75,7 @@ impl Dsp1Command {
         }
     }
 
+    #[allow(dead_code)]
     fn output_size(&self) -> usize {
         match self {
             Self::Multiply => 4,        // 32-bit result
