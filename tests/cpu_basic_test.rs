@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /// CPU Basic Tests with Embedded ROM Builder
 /// 
 /// This module provides a complete SNES LoROM builder for testing CPU functionality
