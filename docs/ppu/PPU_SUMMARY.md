@@ -10,7 +10,7 @@ A complete SNES Picture Processing Unit (PPU) in [src/ppu.rs](src/ppu.rs) with a
 - **VRAM**: 64KB for tiles and tilemaps
 - **OAM**: 544 bytes for sprite attributes (128 sprites)
 - **CGRAM**: 512 bytes for color palette (256 colors, RGB555)
-- **Framebuffer**: 512×478 pixels (RGBA8888 output)
+- **Framebuffer**: 512×478 pixels including overscan (512×448 visible; RGBA8888 output)
 
 ### 2. Rendering Modes ✅
 - **Mode 0**: 4 background layers, 2bpp each
