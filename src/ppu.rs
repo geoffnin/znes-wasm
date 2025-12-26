@@ -2,6 +2,7 @@
 // Reference: https://snes.nesdev.org/wiki/PPU_registers
 
 /// SNES PPU - handles all graphics rendering
+#[allow(dead_code)]
 pub struct Ppu {
     // Memory regions
     vram: [u8; 0x10000],        // 64KB Video RAM
@@ -110,6 +111,7 @@ enum VramMapping {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 struct BgLayer {
     enabled: bool,
     tilemap_addr: u16,
@@ -128,6 +130,7 @@ enum TileSize {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 struct Sprite {
     x: i16,
     y: u8,
@@ -140,6 +143,7 @@ struct Sprite {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 enum SpriteSize {
     Small,
     Large,

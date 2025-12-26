@@ -97,6 +97,7 @@ impl Emulator {
     }
     
     /// Read byte from memory or memory-mapped I/O
+    #[allow(dead_code)]
     fn read_byte(&mut self, addr: u32) -> u8 {
         // Check for PPU register reads ($2100-$213F)
         if (0x2100..=0x213F).contains(&(addr as u16)) {
@@ -112,6 +113,7 @@ impl Emulator {
     }
     
     /// Write byte to memory or memory-mapped I/O
+    #[allow(dead_code)]
     fn write_byte(&mut self, addr: u32, value: u8) {
         // Check for PPU register writes ($2100-$2133)
         if (0x2100..=0x2133).contains(&(addr as u16)) {
