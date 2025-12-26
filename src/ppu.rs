@@ -767,20 +767,20 @@ impl Ppu {
             0x2105 => self.bgmode = value,
             0x2106 => self.mosaic = value,
             0x2107 => {
-                // BG1 tilemap address and size
-                self.bg1_tilemap_addr = ((value as u16 & 0xFC) >> 2) << 11;
+                // BG1 tilemap address and size (bits 7-2 → VRAM address bits 15-10)
+                self.bg1_tilemap_addr = (value as u16 & 0xFC) << 8;
             },
             0x2108 => {
-                // BG2 tilemap address and size
-                self.bg2_tilemap_addr = ((value as u16 & 0xFC) >> 2) << 11;
+                // BG2 tilemap address and size (bits 7-2 → VRAM address bits 15-10)
+                self.bg2_tilemap_addr = (value as u16 & 0xFC) << 8;
             },
             0x2109 => {
-                // BG3 tilemap address and size
-                self.bg3_tilemap_addr = ((value as u16 & 0xFC) >> 2) << 11;
+                // BG3 tilemap address and size (bits 7-2 → VRAM address bits 15-10)
+                self.bg3_tilemap_addr = (value as u16 & 0xFC) << 8;
             },
             0x210A => {
-                // BG4 tilemap address and size
-                self.bg4_tilemap_addr = ((value as u16 & 0xFC) >> 2) << 11;
+                // BG4 tilemap address and size (bits 7-2 → VRAM address bits 15-10)
+                self.bg4_tilemap_addr = (value as u16 & 0xFC) << 8;
             },
             0x210B => {
                 // BG1 and BG2 character data address
