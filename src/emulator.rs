@@ -133,9 +133,9 @@ impl Emulator {
     
     /// Step CPU and handle memory-mapped I/O
     fn step_cpu(&mut self) {
-        // For now, simplified - just step PPU
-        // Full CPU execution would be integrated here
-        // The CPU module already has complex instruction execution
+        if let Some(ref mut memory) = self.memory {
+            self.cpu.step(memory);
+        }
     }
     
     /// Read byte from memory or memory-mapped I/O
