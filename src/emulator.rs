@@ -2,6 +2,7 @@
 // Combines CPU, PPU, and Memory systems
 
 use crate::cpu::Cpu65816;
+use crate::apu::Apu;
 use crate::ppu::Ppu;
 use crate::memory::Memory;
 use crate::cartridge::Cartridge;
@@ -63,6 +64,12 @@ impl Emulator {
             if self.master_cycles % 6 == 0 {
                 self.step_cpu();
             }
+
+            // Keep the APU running at roughly 1 MHz (coarse approximation)
+            if let Some(memory) = self.memory.as_mut() {
+                // 1 APU step per master cycle is too slow; batch a few.
+                memory.apu_mut().step_spc(2);
+            }
             
             self.master_cycles += 1;
             
@@ -83,6 +90,11 @@ impl Emulator {
             // Step PPU proportionally (approximately 6 dots per CPU cycle)
             for _ in 0..6 {
                 self.ppu.step();
+            }
+
+            // Run a small batch of APU cycles to keep audio logic alive
+            if let Some(memory) = self.memory.as_mut() {
+                memory.apu_mut().step_spc(32);
             }
             
             self.master_cycles += 6;
@@ -256,5 +268,15 @@ impl Emulator {
     /// Get mutable reference to Memory
     pub fn memory_mut(&mut self) -> Option<&mut Memory> {
         self.memory.as_mut()
+    }
+
+    /// Render one 32kHz stereo audio frame (534 samples) from the APU, if present.
+    pub fn render_audio_frame(&mut self) -> Option<&[i16]> {
+        self.memory.as_mut().map(|m| m.apu_mut().render_frame())
+    }
+
+    /// Get mutable access to the APU when memory is present.
+    pub fn apu_mut(&mut self) -> Option<&mut Apu> {
+        self.memory.as_mut().map(|m| m.apu_mut())
     }
 }

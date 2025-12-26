@@ -5,6 +5,7 @@ pub mod memory;
 pub mod cpu;
 pub mod ppu;
 pub mod emulator;
+pub mod apu;
 
 #[wasm_bindgen]
 pub fn greet(name: &str) -> String {
