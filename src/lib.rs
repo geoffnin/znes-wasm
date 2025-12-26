@@ -7,6 +7,9 @@ pub mod ppu;
 pub mod emulator;
 pub mod apu;
 
+#[cfg(test)]
+mod apu_tests;
+
 #[wasm_bindgen]
 pub fn greet(name: &str) -> String {
     format!("Hello, {}! Welcome to ZNES-WASM!", name)

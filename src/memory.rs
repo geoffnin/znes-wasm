@@ -1,4 +1,3 @@
-use crate::apu::Apu;
 use crate::cartridge::{Cartridge, MappingMode};
 
 /// SNES Memory System
@@ -14,9 +13,6 @@ pub struct Memory {
     
     /// ROM data from cartridge
     rom: Vec<u8>,
-
-    /// Audio subsystem (SPC700 + DSP)
-    pub apu: Apu,
     
     /// Current mapping mode (determines address translation)
     mapping_mode: MappingMode,
@@ -58,7 +54,6 @@ impl Memory {
             wram: Box::new([0; 0x20000]),
             sram: vec![0; cartridge.sram_size()],
             rom: cartridge.rom_data().to_vec(),
-            apu: Apu::new(),
             mapping_mode: cartridge.mapping_mode(),
             read_map: [MemoryRegion::default(); 2048],
             write_map: [MemoryRegion::default(); 2048],
@@ -339,11 +334,6 @@ impl Memory {
     
     /// Read a byte from memory using 24-bit address
     pub fn read(&self, addr: u32) -> u8 {
-        // APU I/O ports ($2140-$2143)
-        if (0x2140..=0x2143).contains(&(addr as u16)) {
-            return self.apu.cpu_read_port(addr as u16);
-        }
-
         let page = ((addr >> 13) & 0x7FF) as usize; // Get 8KB page number
         let offset_in_page = (addr & 0x1FFF) as usize;
         
@@ -372,12 +362,6 @@ impl Memory {
     
     /// Write a byte to memory using 24-bit address
     pub fn write(&mut self, addr: u32, value: u8) {
-        // APU I/O ports ($2140-$2143)
-        if (0x2140..=0x2143).contains(&(addr as u16)) {
-            self.apu.cpu_write_port(addr as u16, value);
-            return;
-        }
-
         let page = ((addr >> 13) & 0x7FF) as usize;
         let offset_in_page = (addr & 0x1FFF) as usize;
         
@@ -414,16 +398,6 @@ impl Memory {
     /// Get SRAM data for saving
     pub fn sram(&self) -> &[u8] {
         &self.sram
-    }
-
-    /// Get immutable APU reference
-    pub fn apu(&self) -> &Apu {
-        &self.apu
-    }
-
-    /// Get mutable APU reference
-    pub fn apu_mut(&mut self) -> &mut Apu {
-        &mut self.apu
     }
     
     /// Load SRAM data

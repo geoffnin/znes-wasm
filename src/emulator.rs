@@ -7,10 +7,11 @@ use crate::ppu::Ppu;
 use crate::memory::Memory;
 use crate::cartridge::Cartridge;
 
-/// Main SNES Emulator - coordinates CPU, PPU, and memory
+/// Main SNES Emulator - coordinates CPU, PPU, APU, and memory
 pub struct Emulator {
     cpu: Cpu65816,
     ppu: Ppu,
+    apu: Apu,
     memory: Option<Memory>,
     cartridge: Option<Cartridge>,
     master_cycles: u64,
@@ -23,6 +24,7 @@ impl Emulator {
         Self {
             cpu: Cpu65816::new(),
             ppu: Ppu::new(),
+            apu: Apu::new(),
             memory: None,
             cartridge: None,
             master_cycles: 0,
@@ -38,6 +40,7 @@ impl Emulator {
             self.memory = Some(memory);
         }
         self.ppu.reset();
+        self.apu.reset();
         self.master_cycles = 0;
         self.paused = false;
     }
@@ -66,10 +69,8 @@ impl Emulator {
             }
 
             // Keep the APU running at roughly 1 MHz (coarse approximation)
-            if let Some(memory) = self.memory.as_mut() {
-                // 1 APU step per master cycle is too slow; batch a few.
-                memory.apu_mut().step_spc(2);
-            }
+            // 1 APU step per master cycle is too slow; batch a few.
+            self.apu.step_spc(2);
             
             self.master_cycles += 1;
             
@@ -93,9 +94,7 @@ impl Emulator {
             }
 
             // Run a small batch of APU cycles to keep audio logic alive
-            if let Some(memory) = self.memory.as_mut() {
-                memory.apu_mut().step_spc(32);
-            }
+            self.apu.step_spc(32);
             
             self.master_cycles += 6;
         }
@@ -116,6 +115,11 @@ impl Emulator {
             return self.ppu.read_register(addr as u16);
         }
         
+        // Check for APU I/O ports ($2140-$2143)
+        if (0x2140..=0x2143).contains(&(addr as u16)) {
+            return self.apu.cpu_read_port(addr as u16);
+        }
+        
         // Otherwise read from main memory
         if let Some(ref memory) = self.memory {
             memory.read(addr)
@@ -130,6 +134,12 @@ impl Emulator {
         // Check for PPU register writes ($2100-$2133)
         if (0x2100..=0x2133).contains(&(addr as u16)) {
             self.ppu.write_register(addr as u16, value);
+            return;
+        }
+        
+        // Check for APU I/O ports ($2140-$2143)
+        if (0x2140..=0x2143).contains(&(addr as u16)) {
+            self.apu.cpu_write_port(addr as u16, value);
             return;
         }
         
@@ -270,13 +280,18 @@ impl Emulator {
         self.memory.as_mut()
     }
 
-    /// Render one 32kHz stereo audio frame (534 samples) from the APU, if present.
-    pub fn render_audio_frame(&mut self) -> Option<&[i16]> {
-        self.memory.as_mut().map(|m| m.apu_mut().render_frame())
+    /// Render one 32kHz stereo audio frame (534 samples) from the APU.
+    pub fn render_audio_frame(&mut self) -> &[i16] {
+        self.apu.render_frame()
     }
 
-    /// Get mutable access to the APU when memory is present.
-    pub fn apu_mut(&mut self) -> Option<&mut Apu> {
-        self.memory.as_mut().map(|m| m.apu_mut())
+    /// Get mutable access to the APU.
+    pub fn apu_mut(&mut self) -> &mut Apu {
+        &mut self.apu
+    }
+
+    /// Get immutable access to the APU.
+    pub fn apu(&self) -> &Apu {
+        &self.apu
     }
 }

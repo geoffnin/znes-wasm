@@ -11,11 +11,11 @@ pub const NTSC_SAMPLES_PER_FRAME: usize = 534; // ~32kHz over 60Hz
 /// APU top-level structure holding the SPC700 core, DSP, and shared audio RAM.
 pub struct Apu {
     pub spc: Spc700,
-    ram: Box<[u8; AUDIO_RAM_SIZE]>,
-    dsp: Dsp,
-    cpu_ports: [u8; 4],
-    spc_ports: [u8; 4],
-    dsp_addr: u8,
+    pub(crate) ram: Box<[u8; AUDIO_RAM_SIZE]>,
+    pub(crate) dsp: Dsp,
+    pub(crate) cpu_ports: [u8; 4],
+    pub(crate) spc_ports: [u8; 4],
+    pub(crate) dsp_addr: u8,
     audio_buffer: Vec<i16>,
 }
 
@@ -279,14 +279,14 @@ impl Psw {
         self.c = (value & 0x01) != 0;
     }
 
-    fn update_nz(&mut self, value: u8) {
+    pub fn update_nz(&mut self, value: u8) {
         self.n = (value & 0x80) != 0;
         self.z = value == 0;
     }
 }
 
 /// DSP audio unit (very approximate, focuses on plumbing and basic tone).
-struct Dsp {
+pub(crate) struct Dsp {
     registers: [u8; DSP_REGISTER_SPACE],
     voices: [Voice; 8],
     echo_buffer: Vec<f32>,
