@@ -1,4 +1,5 @@
 use crate::cartridge::{Cartridge, MappingMode};
+use crate::chips::CoProcessor;
 
 /// SNES Memory System
 /// 
@@ -21,6 +22,9 @@ pub struct Memory {
     /// Maps each 8KB page to its memory type and offset
     read_map: [MemoryRegion; 2048], // 16MB / 8KB = 2048 pages
     write_map: [MemoryRegion; 2048],
+    
+    /// Optional coprocessor/enhancement chip
+    coprocessor: Option<Box<dyn CoProcessor>>,
 }
 
 /// Represents a mapped memory region
@@ -50,6 +54,11 @@ impl Default for MemoryRegion {
 impl Memory {
     /// Create a new Memory system with a loaded cartridge
     pub fn new(cartridge: &Cartridge) -> Self {
+        Self::new_with_coprocessor(cartridge, None)
+    }
+    
+    /// Create a new Memory system with a loaded cartridge and optional coprocessor
+    pub fn new_with_coprocessor(cartridge: &Cartridge, coprocessor: Option<Box<dyn CoProcessor>>) -> Self {
         let mut memory = Memory {
             wram: Box::new([0; 0x20000]),
             sram: vec![0; cartridge.sram_size()],
@@ -57,6 +66,7 @@ impl Memory {
             mapping_mode: cartridge.mapping_mode(),
             read_map: [MemoryRegion::default(); 2048],
             write_map: [MemoryRegion::default(); 2048],
+            coprocessor,
         };
         
         memory.initialize_memory_map();
@@ -333,7 +343,14 @@ impl Memory {
     }
     
     /// Read a byte from memory using 24-bit address
-    pub fn read(&self, addr: u32) -> u8 {
+    pub fn read(&mut self, addr: u32) -> u8 {
+        // Check if coprocessor handles this address first
+        if let Some(ref mut chip) = self.coprocessor {
+            if chip.handles_address(addr) {
+                return chip.read(addr);
+            }
+        }
+        
         let page = ((addr >> 13) & 0x7FF) as usize; // Get 8KB page number
         let offset_in_page = (addr & 0x1FFF) as usize;
         
@@ -362,6 +379,14 @@ impl Memory {
     
     /// Write a byte to memory using 24-bit address
     pub fn write(&mut self, addr: u32, value: u8) {
+        // Check if coprocessor handles this address first
+        if let Some(ref mut chip) = self.coprocessor {
+            if chip.handles_address(addr) {
+                chip.write(addr, value);
+                return;
+            }
+        }
+        
         let page = ((addr >> 13) & 0x7FF) as usize;
         let offset_in_page = (addr & 0x1FFF) as usize;
         
@@ -383,7 +408,7 @@ impl Memory {
     }
     
     /// Read a 16-bit word from memory (little-endian)
-    pub fn read_word(&self, addr: u32) -> u16 {
+    pub fn read_word(&mut self, addr: u32) -> u16 {
         let lo = self.read(addr) as u16;
         let hi = self.read(addr.wrapping_add(1)) as u16;
         lo | (hi << 8)
@@ -393,6 +418,22 @@ impl Memory {
     pub fn write_word(&mut self, addr: u32, value: u16) {
         self.write(addr, (value & 0xFF) as u8);
         self.write(addr.wrapping_add(1), (value >> 8) as u8);
+    }
+    
+    /// Step the coprocessor (if present) for the given number of cycles
+    pub fn step_coprocessor(&mut self, cycles: u32) -> u32 {
+        if let Some(ref mut chip) = self.coprocessor {
+            chip.step(cycles)
+        } else {
+            0
+        }
+    }
+    
+    /// Reset coprocessor (if present)
+    pub fn reset_coprocessor(&mut self) {
+        if let Some(ref mut chip) = self.coprocessor {
+            chip.reset();
+        }
     }
     
     /// Get SRAM data for saving
@@ -549,7 +590,7 @@ mod tests {
         rom[0x100] = 0x34;
         
         let cartridge = Cartridge::from_rom(rom).unwrap();
-        let memory = Memory::new(&cartridge);
+        let mut memory = Memory::new(&cartridge);
         
         // Test ROM read in LoROM mapping (bank $00, offset $8000+)
         assert_eq!(memory.read(0x008000), 0x12);
@@ -623,7 +664,7 @@ mod tests {
         rom[0xC000] = 0x78;
         
         let cartridge = Cartridge::from_rom(rom).unwrap();
-        let memory = Memory::new(&cartridge);
+        let mut memory = Memory::new(&cartridge);
         
         // HiROM: Banks $00-$3F/$80-$BF have ROM in upper half ($8000-$FFFF)
         // Bank $00, offset $8000-$FFFF maps to ROM offset $0000-$7FFF
@@ -696,7 +737,7 @@ mod tests {
         rom[0x500000] = 0x78; // For bank $50 access
         
         let cartridge = Cartridge::from_rom(rom).unwrap();
-        let memory = Memory::new(&cartridge);
+        let mut memory = Memory::new(&cartridge);
         
         // ExHiROM: Banks $00-$3F/$80-$BF, upper half ($8000-$FFFF)
         // Maps to ROM with offset $400000+

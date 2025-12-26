@@ -5,7 +5,8 @@ use crate::cpu::Cpu65816;
 use crate::apu::Apu;
 use crate::ppu::Ppu;
 use crate::memory::Memory;
-use crate::cartridge::Cartridge;
+use crate::cartridge::{Cartridge, CartridgeType};
+use crate::chips::{ChipType, create_coprocessor};
 
 /// Main SNES Emulator - coordinates CPU, PPU, APU, and memory
 pub struct Emulator {
@@ -35,14 +36,34 @@ impl Emulator {
     /// Reset the entire emulator
     pub fn reset(&mut self) {
         if let Some(ref cart) = self.cartridge {
-            let memory = Memory::new(cart);
-            self.cpu.reset(&memory);
+            // Detect and create coprocessor if needed
+            let coprocessor = Self::create_coprocessor_for_cartridge(cart);
+            
+            let mut memory = Memory::new_with_coprocessor(cart, coprocessor);
+            
+            // Reset coprocessor if present
+            memory.reset_coprocessor();
+            
+            // Reset CPU with memory
+            self.cpu.reset(&mut memory);
+            
             self.memory = Some(memory);
         }
         self.ppu.reset();
         self.apu.reset();
         self.master_cycles = 0;
         self.paused = false;
+    }
+    
+    /// Create a coprocessor based on cartridge type
+    fn create_coprocessor_for_cartridge(cartridge: &Cartridge) -> Option<Box<dyn crate::chips::CoProcessor>> {
+        // Check if cartridge has a coprocessor
+        if let CartridgeType::RomCoprocessor(chip_byte) = cartridge.cartridge_type() {
+            if let Some(chip_type) = ChipType::from_cartridge_byte(chip_byte) {
+                return create_coprocessor(chip_type);
+            }
+        }
+        None
     }
     
     /// Run emulator for one frame (returns true when frame completes)
@@ -66,6 +87,11 @@ impl Emulator {
             // For now, step once per several PPU cycles
             if self.master_cycles % 6 == 0 {
                 self.step_cpu();
+                
+                // Step coprocessor if present
+                if let Some(ref mut memory) = self.memory {
+                    memory.step_coprocessor(6);
+                }
             }
 
             // Keep the APU running at roughly 1 MHz (coarse approximation)
@@ -87,6 +113,11 @@ impl Emulator {
     pub fn step(&mut self) {
         if !self.paused {
             self.step_cpu();
+            
+            // Step coprocessor if present
+            if let Some(ref mut memory) = self.memory {
+                memory.step_coprocessor(6);
+            }
             
             // Step PPU proportionally (approximately 6 dots per CPU cycle)
             for _ in 0..6 {
@@ -120,8 +151,8 @@ impl Emulator {
             return self.apu.cpu_read_port(addr as u16);
         }
         
-        // Otherwise read from main memory
-        if let Some(ref memory) = self.memory {
+        // Otherwise read from main memory (which may include coprocessor)
+        if let Some(ref mut memory) = self.memory {
             memory.read(addr)
         } else {
             0
@@ -159,11 +190,14 @@ impl Emulator {
         let cartridge = Cartridge::from_rom(rom_data.to_vec())
             .map_err(|e| format!("Failed to load ROM: {:?}", e))?;
         
-        // Create memory system with cartridge
-        let memory = Memory::new(&cartridge);
+        // Detect and create coprocessor if needed
+        let coprocessor = Self::create_coprocessor_for_cartridge(&cartridge);
+        
+        // Create memory system with cartridge and coprocessor
+        let mut memory = Memory::new_with_coprocessor(&cartridge, coprocessor);
         
         // Reset CPU with new memory
-        self.cpu.reset(&memory);
+        self.cpu.reset(&mut memory);
         
         self.cartridge = Some(cartridge);
         self.memory = Some(memory);
