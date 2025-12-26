@@ -6,6 +6,7 @@ pub mod cpu;
 pub mod ppu;
 pub mod emulator;
 pub mod apu;
+pub mod chips;
 
 #[cfg(test)]
 mod apu_tests;

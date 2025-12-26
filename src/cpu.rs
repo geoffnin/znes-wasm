@@ -141,7 +141,7 @@ impl Cpu65816 {
     }
     
     /// Reset the CPU
-    pub fn reset(&mut self, memory: &Memory) {
+    pub fn reset(&mut self, memory: &mut Memory) {
         // Read reset vector from $00FFFC-$00FFFD
         let pcl = memory.read(0x00FFFC) as u16;
         let pch = memory.read(0x00FFFD) as u16;
@@ -183,7 +183,7 @@ impl Cpu65816 {
     
     /// Fetch a byte from current PC and increment
     #[inline]
-    fn fetch_byte(&mut self, memory: &Memory) -> u8 {
+    fn fetch_byte(&mut self, memory: &mut Memory) -> u8 {
         let addr = ((self.pbr as u32) << 16) | (self.pc as u32);
         let value = memory.read(addr);
         self.pc = self.pc.wrapping_add(1);
@@ -192,7 +192,7 @@ impl Cpu65816 {
     
     /// Fetch a 16-bit word from current PC and increment
     #[inline]
-    fn fetch_word(&mut self, memory: &Memory) -> u16 {
+    fn fetch_word(&mut self, memory: &mut Memory) -> u16 {
         let lo = self.fetch_byte(memory) as u16;
         let hi = self.fetch_byte(memory) as u16;
         lo | (hi << 8)
@@ -238,7 +238,7 @@ impl Cpu65816 {
     
     /// Pull byte from stack
     #[inline]
-    fn pull_byte(&mut self, memory: &Memory) -> u8 {
+    fn pull_byte(&mut self, memory: &mut Memory) -> u8 {
         self.s = self.s.wrapping_add(1);
         if self.p.e {
             self.s = 0x0100 | (self.s & 0xFF);
@@ -253,7 +253,7 @@ impl Cpu65816 {
     
     /// Pull word from stack
     #[inline]
-    fn pull_word(&mut self, memory: &Memory) -> u16 {
+    fn pull_word(&mut self, memory: &mut Memory) -> u16 {
         let lo = self.pull_byte(memory) as u16;
         let hi = self.pull_byte(memory) as u16;
         lo | (hi << 8)
@@ -590,40 +590,40 @@ impl Cpu65816 {
     // Addressing mode helpers
     
     #[inline]
-    fn addr_direct_page(&mut self, memory: &Memory) -> u32 {
+    fn addr_direct_page(&mut self, memory: &mut Memory) -> u32 {
         let offset = self.fetch_byte(memory) as u16;
         let addr = self.d.wrapping_add(offset);
         addr as u32
     }
     
     #[inline]
-    fn addr_direct_page_x(&mut self, memory: &Memory) -> u32 {
+    fn addr_direct_page_x(&mut self, memory: &mut Memory) -> u32 {
         let offset = self.fetch_byte(memory) as u16;
         let addr = self.d.wrapping_add(offset).wrapping_add(self.x);
         addr as u32
     }
     
     #[inline]
-    fn addr_direct_page_y(&mut self, memory: &Memory) -> u32 {
+    fn addr_direct_page_y(&mut self, memory: &mut Memory) -> u32 {
         let offset = self.fetch_byte(memory) as u16;
         let addr = self.d.wrapping_add(offset).wrapping_add(self.y);
         addr as u32
     }
     
     #[inline]
-    fn addr_absolute(&mut self, memory: &Memory) -> u32 {
+    fn addr_absolute(&mut self, memory: &mut Memory) -> u32 {
         let addr = self.fetch_word(memory);
         ((self.dbr as u32) << 16) | (addr as u32)
     }
     
     #[inline]
-    fn addr_absolute_x(&mut self, memory: &Memory) -> u32 {
+    fn addr_absolute_x(&mut self, memory: &mut Memory) -> u32 {
         let addr = self.fetch_word(memory).wrapping_add(self.x);
         ((self.dbr as u32) << 16) | (addr as u32)
     }
     
     #[inline]
-    fn addr_absolute_y(&mut self, memory: &Memory) -> u32 {
+    fn addr_absolute_y(&mut self, memory: &mut Memory) -> u32 {
         let addr = self.fetch_word(memory).wrapping_add(self.y);
         ((self.dbr as u32) << 16) | (addr as u32)
     }
@@ -631,14 +631,14 @@ impl Cpu65816 {
     // ===== ADVANCED ADDRESSING MODES - PHASE 3 =====
     
     #[inline]
-    fn addr_absolute_long(&mut self, memory: &Memory) -> u32 {
+    fn addr_absolute_long(&mut self, memory: &mut Memory) -> u32 {
         let addr_lo = self.fetch_word(memory);
         let addr_hi = self.fetch_byte(memory);
         ((addr_hi as u32) << 16) | (addr_lo as u32)
     }
     
     #[inline]
-    fn addr_absolute_long_x(&mut self, memory: &Memory) -> u32 {
+    fn addr_absolute_long_x(&mut self, memory: &mut Memory) -> u32 {
         let addr_lo = self.fetch_word(memory);
         let addr_hi = self.fetch_byte(memory);
         let addr = ((addr_hi as u32) << 16) | (addr_lo as u32);
@@ -646,21 +646,21 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn addr_direct_indirect(&mut self, memory: &Memory) -> u32 {
+    fn addr_direct_indirect(&mut self, memory: &mut Memory) -> u32 {
         let dp_addr = self.addr_direct_page(memory);
         let addr = memory.read_word(dp_addr);
         ((self.dbr as u32) << 16) | (addr as u32)
     }
     
     #[inline]
-    fn addr_direct_indirect_indexed(&mut self, memory: &Memory) -> u32 {
+    fn addr_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u32 {
         let dp_addr = self.addr_direct_page(memory);
         let addr = memory.read_word(dp_addr).wrapping_add(self.y);
         ((self.dbr as u32) << 16) | (addr as u32)
     }
     
     #[inline]
-    fn addr_direct_indexed_indirect(&mut self, memory: &Memory) -> u32 {
+    fn addr_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u32 {
         let offset = self.fetch_byte(memory) as u16;
         let dp_addr = self.d.wrapping_add(offset).wrapping_add(self.x);
         let addr = memory.read_word(dp_addr as u32);
@@ -668,7 +668,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn addr_direct_indirect_long(&mut self, memory: &Memory) -> u32 {
+    fn addr_direct_indirect_long(&mut self, memory: &mut Memory) -> u32 {
         let dp_addr = self.addr_direct_page(memory);
         let addr_lo = memory.read_word(dp_addr);
         let addr_hi = memory.read(dp_addr.wrapping_add(2));
@@ -676,7 +676,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn addr_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u32 {
+    fn addr_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u32 {
         let dp_addr = self.addr_direct_page(memory);
         let addr_lo = memory.read_word(dp_addr);
         let addr_hi = memory.read(dp_addr.wrapping_add(2));
@@ -685,13 +685,13 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn addr_stack_relative(&mut self, memory: &Memory) -> u32 {
+    fn addr_stack_relative(&mut self, memory: &mut Memory) -> u32 {
         let offset = self.fetch_byte(memory) as u16;
         self.s.wrapping_add(offset) as u32
     }
     
     #[inline]
-    fn addr_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u32 {
+    fn addr_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u32 {
         let offset = self.fetch_byte(memory) as u16;
         let sp_addr = self.s.wrapping_add(offset);
         let addr = memory.read_word(sp_addr as u32).wrapping_add(self.y);
@@ -703,7 +703,7 @@ impl Cpu65816 {
     // LDA - Load Accumulator
     
     #[inline]
-    fn op_lda_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             // 8-bit mode
             let value = self.fetch_byte(memory);
@@ -720,7 +720,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -736,7 +736,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -752,7 +752,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -768,7 +768,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -784,7 +784,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_absolute_y(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -800,7 +800,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_direct_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_direct_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -816,7 +816,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -832,7 +832,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indexed_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -848,7 +848,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_direct_indirect_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -864,7 +864,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -880,7 +880,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_stack_relative(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_stack_relative(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -896,7 +896,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -912,7 +912,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_absolute_long(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_absolute_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -928,7 +928,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_lda_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+    fn op_lda_absolute_long_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -946,7 +946,7 @@ impl Cpu65816 {
     // LDX - Load X Register
     
     #[inline]
-    fn op_ldx_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_ldx_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.x {
             let value = self.fetch_byte(memory);
             self.x = value as u16;
@@ -961,7 +961,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ldx_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_ldx_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -977,7 +977,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ldx_direct_page_y(&mut self, memory: &Memory) -> u8 {
+    fn op_ldx_direct_page_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_y(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -993,7 +993,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ldx_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_ldx_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -1009,7 +1009,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ldx_absolute_y(&mut self, memory: &Memory) -> u8 {
+    fn op_ldx_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -1027,7 +1027,7 @@ impl Cpu65816 {
     // LDY - Load Y Register
     
     #[inline]
-    fn op_ldy_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_ldy_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.x {
             let value = self.fetch_byte(memory);
             self.y = value as u16;
@@ -1042,7 +1042,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ldy_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_ldy_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -1058,7 +1058,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ldy_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_ldy_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -1074,7 +1074,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ldy_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_ldy_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -1090,7 +1090,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ldy_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_ldy_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -1404,7 +1404,7 @@ impl Cpu65816 {
     // Transfer Instructions
     
     #[inline]
-    fn op_tax(&mut self, _memory: &Memory) -> u8 {
+    fn op_tax(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             self.x = self.a & 0xFF;
             self.update_nz_8(self.x as u8);
@@ -1416,7 +1416,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_tay(&mut self, _memory: &Memory) -> u8 {
+    fn op_tay(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             self.y = self.a & 0xFF;
             self.update_nz_8(self.y as u8);
@@ -1428,7 +1428,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_tsx(&mut self, _memory: &Memory) -> u8 {
+    fn op_tsx(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             self.x = self.s & 0xFF;
             self.update_nz_8(self.x as u8);
@@ -1440,7 +1440,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_txa(&mut self, _memory: &Memory) -> u8 {
+    fn op_txa(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.m {
             self.a = (self.a & 0xFF00) | (self.x & 0xFF);
             self.update_nz_8(self.a as u8);
@@ -1452,7 +1452,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_txy(&mut self, _memory: &Memory) -> u8 {
+    fn op_txy(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             self.y = self.x & 0xFF;
             self.update_nz_8(self.y as u8);
@@ -1464,7 +1464,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_tya(&mut self, _memory: &Memory) -> u8 {
+    fn op_tya(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.m {
             self.a = (self.a & 0xFF00) | (self.y & 0xFF);
             self.update_nz_8(self.a as u8);
@@ -1476,7 +1476,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_tyx(&mut self, _memory: &Memory) -> u8 {
+    fn op_tyx(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             self.x = self.y & 0xFF;
             self.update_nz_8(self.x as u8);
@@ -1488,7 +1488,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_txs(&mut self, _memory: &Memory) -> u8 {
+    fn op_txs(&mut self, _memory: &mut Memory) -> u8 {
         self.s = if self.p.e {
             0x0100 | (self.x & 0xFF)
         } else {
@@ -1511,7 +1511,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_pla(&mut self, memory: &Memory) -> u8 {
+    fn op_pla(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = self.pull_byte(memory);
             self.a = (self.a & 0xFF00) | (value as u16);
@@ -1532,7 +1532,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_plp(&mut self, memory: &Memory) -> u8 {
+    fn op_plp(&mut self, memory: &mut Memory) -> u8 {
         let value = self.pull_byte(memory);
         self.p.from_byte(value);
         4
@@ -1550,7 +1550,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_plx(&mut self, memory: &Memory) -> u8 {
+    fn op_plx(&mut self, memory: &mut Memory) -> u8 {
         if self.p.x {
             let value = self.pull_byte(memory);
             self.x = value as u16;
@@ -1576,7 +1576,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ply(&mut self, memory: &Memory) -> u8 {
+    fn op_ply(&mut self, memory: &mut Memory) -> u8 {
         if self.p.x {
             let value = self.pull_byte(memory);
             self.y = value as u16;
@@ -1593,7 +1593,7 @@ impl Cpu65816 {
     // Branch Instructions
     
     #[inline]
-    fn op_bcc(&mut self, memory: &Memory) -> u8 {
+    fn op_bcc(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         if !self.p.c {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -1604,7 +1604,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bcs(&mut self, memory: &Memory) -> u8 {
+    fn op_bcs(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         if self.p.c {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -1615,7 +1615,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_beq(&mut self, memory: &Memory) -> u8 {
+    fn op_beq(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         if self.p.z {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -1626,7 +1626,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bmi(&mut self, memory: &Memory) -> u8 {
+    fn op_bmi(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         if self.p.n {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -1637,7 +1637,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bne(&mut self, memory: &Memory) -> u8 {
+    fn op_bne(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         if !self.p.z {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -1648,7 +1648,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bpl(&mut self, memory: &Memory) -> u8 {
+    fn op_bpl(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         if !self.p.n {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -1659,7 +1659,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bvc(&mut self, memory: &Memory) -> u8 {
+    fn op_bvc(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         if !self.p.v {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -1670,7 +1670,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bvs(&mut self, memory: &Memory) -> u8 {
+    fn op_bvs(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         if self.p.v {
             self.pc = self.pc.wrapping_add(offset as u16);
@@ -1681,14 +1681,14 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bra(&mut self, memory: &Memory) -> u8 {
+    fn op_bra(&mut self, memory: &mut Memory) -> u8 {
         let offset = self.fetch_byte(memory) as i8;
         self.pc = self.pc.wrapping_add(offset as u16);
         3
     }
 
     #[inline]
-    fn op_brl(&mut self, memory: &Memory) -> u8 {
+    fn op_brl(&mut self, memory: &mut Memory) -> u8 {
         // Branch Always Long - 16-bit relative offset
         let offset = self.fetch_word(memory) as i16;
         self.pc = self.pc.wrapping_add(offset as u16);
@@ -1698,13 +1698,13 @@ impl Cpu65816 {
     // Jump Instructions
     
     #[inline]
-    fn op_jmp_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_jmp_absolute(&mut self, memory: &mut Memory) -> u8 {
         self.pc = self.fetch_word(memory);
         3
     }
 
     #[inline]
-    fn op_jmp_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_jmp_indirect(&mut self, memory: &mut Memory) -> u8 {
         // JMP (addr) - 0x6C
         let ptr = self.fetch_word(memory);
         self.pc = memory.read_word(((self.pbr as u32) << 16) | (ptr as u32));
@@ -1712,7 +1712,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_jmp_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_jmp_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
         // JMP (addr,X) - 0x7C
         let ptr = self.fetch_word(memory);
         let effective_addr = ptr.wrapping_add(self.x);
@@ -1741,7 +1741,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_rts(&mut self, memory: &Memory) -> u8 {
+    fn op_rts(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.pull_word(memory);
         self.pc = addr.wrapping_add(1);
         6
@@ -1750,43 +1750,43 @@ impl Cpu65816 {
     // Flag Operations
     
     #[inline]
-    fn op_clc(&mut self, _memory: &Memory) -> u8 {
+    fn op_clc(&mut self, _memory: &mut Memory) -> u8 {
         self.p.c = false;
         2
     }
     
     #[inline]
-    fn op_cld(&mut self, _memory: &Memory) -> u8 {
+    fn op_cld(&mut self, _memory: &mut Memory) -> u8 {
         self.p.d = false;
         2
     }
     
     #[inline]
-    fn op_cli(&mut self, _memory: &Memory) -> u8 {
+    fn op_cli(&mut self, _memory: &mut Memory) -> u8 {
         self.p.i = false;
         2
     }
     
     #[inline]
-    fn op_clv(&mut self, _memory: &Memory) -> u8 {
+    fn op_clv(&mut self, _memory: &mut Memory) -> u8 {
         self.p.v = false;
         2
     }
     
     #[inline]
-    fn op_sec(&mut self, _memory: &Memory) -> u8 {
+    fn op_sec(&mut self, _memory: &mut Memory) -> u8 {
         self.p.c = true;
         2
     }
     
     #[inline]
-    fn op_sed(&mut self, _memory: &Memory) -> u8 {
+    fn op_sed(&mut self, _memory: &mut Memory) -> u8 {
         self.p.d = true;
         2
     }
     
     #[inline]
-    fn op_sei(&mut self, _memory: &Memory) -> u8 {
+    fn op_sei(&mut self, _memory: &mut Memory) -> u8 {
         self.p.i = true;
         2
     }
@@ -1794,12 +1794,12 @@ impl Cpu65816 {
     // System
     
     #[inline]
-    fn op_nop(&mut self, _memory: &Memory) -> u8 {
+    fn op_nop(&mut self, _memory: &mut Memory) -> u8 {
         2
     }
 
     #[inline]
-    fn op_wdm(&mut self, memory: &Memory) -> u8 {
+    fn op_wdm(&mut self, memory: &mut Memory) -> u8 {
         // WDM - Reserved for future expansion (2-byte NOP)
         self.fetch_byte(memory); // Skip the signature byte
         2
@@ -1810,7 +1810,7 @@ impl Cpu65816 {
     // ADC - Add with Carry
     
     #[inline]
-    fn op_adc_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = self.fetch_byte(memory);
             self.adc_8(value);
@@ -1823,7 +1823,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_adc_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -1837,7 +1837,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_adc_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -1851,7 +1851,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_adc_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -1865,7 +1865,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_adc_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -1879,7 +1879,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_adc_absolute_y(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -1963,7 +1963,7 @@ impl Cpu65816 {
     // SBC - Subtract with Carry
     
     #[inline]
-    fn op_sbc_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = self.fetch_byte(memory);
             self.sbc_8(value);
@@ -1976,7 +1976,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_sbc_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -1990,7 +1990,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_sbc_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2004,7 +2004,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_sbc_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2018,7 +2018,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_sbc_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2032,7 +2032,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_sbc_absolute_y(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2116,7 +2116,7 @@ impl Cpu65816 {
     // ADC - Add with Carry (indirect/long addressing modes)
     
     #[inline]
-    fn op_adc_direct_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_direct_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2130,7 +2130,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_adc_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2144,7 +2144,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_adc_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indexed_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2158,7 +2158,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_adc_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_direct_indirect_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2172,7 +2172,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_adc_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2186,7 +2186,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_adc_stack_relative(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_stack_relative(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2200,7 +2200,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_adc_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2214,7 +2214,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_adc_absolute_long(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_absolute_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2228,7 +2228,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_adc_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+    fn op_adc_absolute_long_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2244,7 +2244,7 @@ impl Cpu65816 {
     // SBC - Subtract with Borrow (indirect/long addressing modes)
     
     #[inline]
-    fn op_sbc_direct_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_direct_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2258,7 +2258,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_sbc_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2272,7 +2272,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_sbc_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indexed_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2286,7 +2286,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_sbc_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_direct_indirect_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2300,7 +2300,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_sbc_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2314,7 +2314,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_sbc_stack_relative(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_stack_relative(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2328,7 +2328,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_sbc_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2342,7 +2342,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_sbc_absolute_long(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_absolute_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2356,7 +2356,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_sbc_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+    fn op_sbc_absolute_long_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2374,7 +2374,7 @@ impl Cpu65816 {
     // AND - Logical AND
     
     #[inline]
-    fn op_and_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_and_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = self.fetch_byte(memory);
             let result = (self.a & 0xFF) as u8 & value;
@@ -2390,7 +2390,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_and_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_and_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2407,7 +2407,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_and_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_and_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2424,7 +2424,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_and_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_and_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2441,7 +2441,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_and_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_and_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2458,7 +2458,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_and_absolute_y(&mut self, memory: &Memory) -> u8 {
+    fn op_and_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2477,7 +2477,7 @@ impl Cpu65816 {
     // ORA - Logical OR
     
     #[inline]
-    fn op_ora_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = self.fetch_byte(memory);
             let result = (self.a & 0xFF) as u8 | value;
@@ -2493,7 +2493,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ora_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2510,7 +2510,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ora_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2527,7 +2527,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ora_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2544,7 +2544,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ora_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2561,7 +2561,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_ora_absolute_y(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2580,7 +2580,7 @@ impl Cpu65816 {
     // EOR - Logical Exclusive OR
     
     #[inline]
-    fn op_eor_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = self.fetch_byte(memory);
             let result = (self.a & 0xFF) as u8 ^ value;
@@ -2596,7 +2596,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_eor_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2613,7 +2613,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_eor_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2630,7 +2630,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_eor_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2647,7 +2647,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_eor_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2664,7 +2664,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_eor_absolute_y(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2683,7 +2683,7 @@ impl Cpu65816 {
     // AND - Logical AND (indirect/long addressing modes)
     
     #[inline]
-    fn op_and_direct_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_and_direct_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2700,7 +2700,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_and_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_and_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2717,7 +2717,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_and_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_and_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indexed_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2734,7 +2734,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_and_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+    fn op_and_direct_indirect_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2751,7 +2751,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_and_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_and_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2768,7 +2768,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_and_stack_relative(&mut self, memory: &Memory) -> u8 {
+    fn op_and_stack_relative(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2785,7 +2785,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_and_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_and_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2802,7 +2802,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_and_absolute_long(&mut self, memory: &Memory) -> u8 {
+    fn op_and_absolute_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2819,7 +2819,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_and_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+    fn op_and_absolute_long_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2838,7 +2838,7 @@ impl Cpu65816 {
     // ORA - Logical OR (indirect/long addressing modes)
     
     #[inline]
-    fn op_ora_direct_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_direct_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2855,7 +2855,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_ora_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2872,7 +2872,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_ora_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indexed_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2889,7 +2889,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_ora_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_direct_indirect_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2906,7 +2906,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_ora_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2923,7 +2923,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_ora_stack_relative(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_stack_relative(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2940,7 +2940,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_ora_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2957,7 +2957,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_ora_absolute_long(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_absolute_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2974,7 +2974,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_ora_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+    fn op_ora_absolute_long_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -2993,7 +2993,7 @@ impl Cpu65816 {
     // EOR - Exclusive OR (indirect/long addressing modes)
     
     #[inline]
-    fn op_eor_direct_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_direct_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3010,7 +3010,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_eor_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3027,7 +3027,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_eor_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indexed_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3044,7 +3044,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_eor_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_direct_indirect_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3061,7 +3061,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_eor_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3078,7 +3078,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_eor_stack_relative(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_stack_relative(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3095,7 +3095,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_eor_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3112,7 +3112,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_eor_absolute_long(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_absolute_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3129,7 +3129,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_eor_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+    fn op_eor_absolute_long_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3150,7 +3150,7 @@ impl Cpu65816 {
     // CMP - Compare Accumulator
     
     #[inline]
-    fn op_cmp_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = self.fetch_byte(memory);
             self.compare_8((self.a & 0xFF) as u8, value);
@@ -3163,7 +3163,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cmp_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3177,7 +3177,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cmp_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3191,7 +3191,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cmp_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3205,7 +3205,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cmp_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3219,7 +3219,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cmp_absolute_y(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_absolute_y(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_y(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3235,7 +3235,7 @@ impl Cpu65816 {
     // CMP - Compare Accumulator (indirect/long addressing modes)
     
     #[inline]
-    fn op_cmp_direct_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_direct_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3249,7 +3249,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_cmp_direct_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_direct_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3263,7 +3263,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_cmp_direct_indexed_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_direct_indexed_indirect(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indexed_indirect(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3277,7 +3277,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_cmp_direct_indirect_long(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_direct_indirect_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3291,7 +3291,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_cmp_direct_indirect_long_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_direct_indirect_long_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_indirect_long_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3305,7 +3305,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_cmp_stack_relative(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_stack_relative(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3319,7 +3319,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_cmp_stack_relative_indirect_indexed(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_stack_relative_indirect_indexed(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_stack_relative_indirect_indexed(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3333,7 +3333,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_cmp_absolute_long(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_absolute_long(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3347,7 +3347,7 @@ impl Cpu65816 {
     }
 
     #[inline]
-    fn op_cmp_absolute_long_x(&mut self, memory: &Memory) -> u8 {
+    fn op_cmp_absolute_long_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_long_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3363,7 +3363,7 @@ impl Cpu65816 {
     // CPX - Compare X Register
     
     #[inline]
-    fn op_cpx_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_cpx_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.x {
             let value = self.fetch_byte(memory);
             self.compare_8((self.x & 0xFF) as u8, value);
@@ -3376,7 +3376,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cpx_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_cpx_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -3390,7 +3390,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cpx_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_cpx_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -3406,7 +3406,7 @@ impl Cpu65816 {
     // CPY - Compare Y Register
     
     #[inline]
-    fn op_cpy_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_cpy_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.x {
             let value = self.fetch_byte(memory);
             self.compare_8((self.y & 0xFF) as u8, value);
@@ -3419,7 +3419,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cpy_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_cpy_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -3433,7 +3433,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_cpy_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_cpy_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.x {
             let value = memory.read(addr);
@@ -3465,7 +3465,7 @@ impl Cpu65816 {
     // BIT - Bit Test
     
     #[inline]
-    fn op_bit_immediate(&mut self, memory: &Memory) -> u8 {
+    fn op_bit_immediate(&mut self, memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = self.fetch_byte(memory);
             let result = (self.a & 0xFF) as u8 & value;
@@ -3482,7 +3482,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bit_direct_page(&mut self, memory: &Memory) -> u8 {
+    fn op_bit_direct_page(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3502,7 +3502,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bit_direct_page_x(&mut self, memory: &Memory) -> u8 {
+    fn op_bit_direct_page_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_direct_page_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3522,7 +3522,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bit_absolute(&mut self, memory: &Memory) -> u8 {
+    fn op_bit_absolute(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3542,7 +3542,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_bit_absolute_x(&mut self, memory: &Memory) -> u8 {
+    fn op_bit_absolute_x(&mut self, memory: &mut Memory) -> u8 {
         let addr = self.addr_absolute_x(memory);
         if self.p.m {
             let value = memory.read(addr);
@@ -3642,7 +3642,7 @@ impl Cpu65816 {
     // ASL - Arithmetic Shift Left
     
     #[inline]
-    fn op_asl_accumulator(&mut self, _memory: &Memory) -> u8 {
+    fn op_asl_accumulator(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = (self.a & 0xFF) as u8;
             self.p.c = value & 0x80 != 0;
@@ -3741,7 +3741,7 @@ impl Cpu65816 {
     // LSR - Logical Shift Right
     
     #[inline]
-    fn op_lsr_accumulator(&mut self, _memory: &Memory) -> u8 {
+    fn op_lsr_accumulator(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = (self.a & 0xFF) as u8;
             self.p.c = value & 0x01 != 0;
@@ -3840,7 +3840,7 @@ impl Cpu65816 {
     // ROL - Rotate Left
     
     #[inline]
-    fn op_rol_accumulator(&mut self, _memory: &Memory) -> u8 {
+    fn op_rol_accumulator(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = (self.a & 0xFF) as u8;
             let old_carry = if self.p.c { 1 } else { 0 };
@@ -3949,7 +3949,7 @@ impl Cpu65816 {
     // ROR - Rotate Right
     
     #[inline]
-    fn op_ror_accumulator(&mut self, _memory: &Memory) -> u8 {
+    fn op_ror_accumulator(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.m {
             let value = (self.a & 0xFF) as u8;
             let old_carry = if self.p.c { 0x80 } else { 0 };
@@ -4060,7 +4060,7 @@ impl Cpu65816 {
     // INC - Increment Memory
     
     #[inline]
-    fn op_inc_accumulator(&mut self, _memory: &Memory) -> u8 {
+    fn op_inc_accumulator(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.m {
             let result = ((self.a & 0xFF) as u8).wrapping_add(1);
             self.a = (self.a & 0xFF00) | (result as u16);
@@ -4148,7 +4148,7 @@ impl Cpu65816 {
     // DEC - Decrement Memory
     
     #[inline]
-    fn op_dec_accumulator(&mut self, _memory: &Memory) -> u8 {
+    fn op_dec_accumulator(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.m {
             let result = ((self.a & 0xFF) as u8).wrapping_sub(1);
             self.a = (self.a & 0xFF00) | (result as u16);
@@ -4236,7 +4236,7 @@ impl Cpu65816 {
     // INX, INY, DEX, DEY - Register increment/decrement
     
     #[inline]
-    fn op_inx(&mut self, _memory: &Memory) -> u8 {
+    fn op_inx(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             let result = ((self.x & 0xFF) as u8).wrapping_add(1);
             self.x = (self.x & 0xFF00) | (result as u16);
@@ -4249,7 +4249,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_iny(&mut self, _memory: &Memory) -> u8 {
+    fn op_iny(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             let result = ((self.y & 0xFF) as u8).wrapping_add(1);
             self.y = (self.y & 0xFF00) | (result as u16);
@@ -4262,7 +4262,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_dex(&mut self, _memory: &Memory) -> u8 {
+    fn op_dex(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             let result = ((self.x & 0xFF) as u8).wrapping_sub(1);
             self.x = (self.x & 0xFF00) | (result as u16);
@@ -4275,7 +4275,7 @@ impl Cpu65816 {
     }
     
     #[inline]
-    fn op_dey(&mut self, _memory: &Memory) -> u8 {
+    fn op_dey(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.x {
             let result = ((self.y & 0xFF) as u8).wrapping_sub(1);
             self.y = (self.y & 0xFF00) | (result as u16);
@@ -4291,7 +4291,7 @@ impl Cpu65816 {
     
     // REP - Reset Processor Status Bits
     #[inline]
-    fn op_rep(&mut self, memory: &Memory) -> u8 {
+    fn op_rep(&mut self, memory: &mut Memory) -> u8 {
         let mask = self.fetch_byte(memory);
         let current = self.p.to_byte();
         let new_value = current & !mask;
@@ -4301,7 +4301,7 @@ impl Cpu65816 {
     
     // SEP - Set Processor Status Bits
     #[inline]
-    fn op_sep(&mut self, memory: &Memory) -> u8 {
+    fn op_sep(&mut self, memory: &mut Memory) -> u8 {
         let mask = self.fetch_byte(memory);
         let current = self.p.to_byte();
         let new_value = current | mask;
@@ -4311,7 +4311,7 @@ impl Cpu65816 {
     
     // XCE - Exchange Carry and Emulation Flags
     #[inline]
-    fn op_xce(&mut self, _memory: &Memory) -> u8 {
+    fn op_xce(&mut self, _memory: &mut Memory) -> u8 {
         let old_c = self.p.c;
         self.p.c = self.p.e;
         self.p.e = old_c;
@@ -4327,14 +4327,14 @@ impl Cpu65816 {
     
     // WAI - Wait for Interrupt
     #[inline]
-    fn op_wai(&mut self, _memory: &Memory) -> u8 {
+    fn op_wai(&mut self, _memory: &mut Memory) -> u8 {
         self.waiting = true;
         3
     }
     
     // STP - Stop the Processor
     #[inline]
-    fn op_stp(&mut self, _memory: &Memory) -> u8 {
+    fn op_stp(&mut self, _memory: &mut Memory) -> u8 {
         self.stopped = true;
         3
     }
@@ -4343,7 +4343,7 @@ impl Cpu65816 {
     
     // TCD - Transfer A to Direct Page
     #[inline]
-    fn op_tcd(&mut self, _memory: &Memory) -> u8 {
+    fn op_tcd(&mut self, _memory: &mut Memory) -> u8 {
         self.d = self.a;
         self.update_nz_16(self.d);
         2
@@ -4351,7 +4351,7 @@ impl Cpu65816 {
     
     // TCS - Transfer A to Stack Pointer
     #[inline]
-    fn op_tcs(&mut self, _memory: &Memory) -> u8 {
+    fn op_tcs(&mut self, _memory: &mut Memory) -> u8 {
         if self.p.e {
             // Emulation mode: keep high byte as $01
             self.s = (self.a & 0xFF) | 0x0100;
@@ -4363,7 +4363,7 @@ impl Cpu65816 {
     
     // TDC - Transfer Direct Page to A
     #[inline]
-    fn op_tdc(&mut self, _memory: &Memory) -> u8 {
+    fn op_tdc(&mut self, _memory: &mut Memory) -> u8 {
         self.a = self.d;
         self.update_nz_16(self.a);
         2
@@ -4371,7 +4371,7 @@ impl Cpu65816 {
     
     // TSC - Transfer Stack Pointer to A
     #[inline]
-    fn op_tsc(&mut self, _memory: &Memory) -> u8 {
+    fn op_tsc(&mut self, _memory: &mut Memory) -> u8 {
         self.a = self.s;
         self.update_nz_16(self.a);
         2
@@ -4379,7 +4379,7 @@ impl Cpu65816 {
     
     // XBA - Exchange B and A (swap high/low bytes of A)
     #[inline]
-    fn op_xba(&mut self, _memory: &Memory) -> u8 {
+    fn op_xba(&mut self, _memory: &mut Memory) -> u8 {
         self.a = ((self.a & 0xFF) << 8) | ((self.a >> 8) & 0xFF);
         self.update_nz_8((self.a & 0xFF) as u8);
         3
@@ -4457,7 +4457,7 @@ impl Cpu65816 {
     
     // JML - Jump Long
     #[inline]
-    fn op_jml_absolute_long(&mut self, memory: &Memory) -> u8 {
+    fn op_jml_absolute_long(&mut self, memory: &mut Memory) -> u8 {
         let addr_lo = self.fetch_word(memory);
         let addr_hi = self.fetch_byte(memory);
         self.pc = addr_lo;
@@ -4467,7 +4467,7 @@ impl Cpu65816 {
     
     // JML - Jump Long Indirect
     #[inline]
-    fn op_jml_indirect(&mut self, memory: &Memory) -> u8 {
+    fn op_jml_indirect(&mut self, memory: &mut Memory) -> u8 {
         let ptr = self.fetch_word(memory);
         let addr_lo = memory.read_word(ptr as u32);
         let addr_hi = memory.read((ptr.wrapping_add(2)) as u32);
@@ -4734,10 +4734,10 @@ mod tests {
         rom[0x7FFD] = 0x80; // Reset to $8000
         
         let cartridge = Cartridge::from_rom(rom).unwrap();
-        let memory = Memory::new(&cartridge);
+        let mut memory = Memory::new(&cartridge);
         let mut cpu = Cpu65816::new();
         
-        cpu.reset(&memory);
+        cpu.reset(&mut memory);
         
         assert_eq!(cpu.pc, 0x8000);
         assert_eq!(cpu.pbr, 0);
@@ -4767,13 +4767,13 @@ mod tests {
     #[test]
     fn test_stack_push_pull() {
         let (mut cpu, mut memory) = create_test_system();
-        cpu.reset(&memory);
+        cpu.reset(&mut memory);
         
         let initial_sp = cpu.s;
         cpu.push_byte(&mut memory, 0x42);
         assert_eq!(cpu.s, initial_sp.wrapping_sub(1));
         
-        let value = cpu.pull_byte(&memory);
+        let value = cpu.pull_byte(&mut memory);
         assert_eq!(value, 0x42);
         assert_eq!(cpu.s, initial_sp);
     }
