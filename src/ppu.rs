@@ -8,7 +8,7 @@ pub struct Ppu {
     oam: [u8; 544],              // 544 bytes Object Attribute Memory
     cgram: [u16; 256],           // 512 bytes Color RAM (256 colors, 16-bit each)
     
-    // Output framebuffer (512×478 RGBA8888 to handle overscan)
+    // Output framebuffer (RGBA8888, sized to handle overscan)
     pub framebuffer: Vec<u32>,
     
     // Scanline tracking
