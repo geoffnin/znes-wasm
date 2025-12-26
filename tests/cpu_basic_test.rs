@@ -88,6 +88,16 @@ const REP: u8 = 0xC2;          // Reset Status Bits
 const SEP: u8 = 0xE2;          // Set Status Bits
 const XCE: u8 = 0xFB;          // Exchange Carry and Emulation bits
 
+// Processor status flag masks
+const N_FLAG: u8 = 0x80;       // Negative flag (bit 7)
+const V_FLAG: u8 = 0x40;       // Overflow flag (bit 6)
+const M_FLAG: u8 = 0x20;       // Memory/Accumulator flag (bit 5)
+const X_FLAG: u8 = 0x10;       // Index register flag (bit 4)
+const D_FLAG: u8 = 0x08;       // Decimal flag (bit 3)
+const I_FLAG: u8 = 0x04;       // Interrupt disable flag (bit 2)
+const Z_FLAG: u8 = 0x02;       // Zero flag (bit 1)
+const C_FLAG: u8 = 0x01;       // Carry flag (bit 0)
+
 // ============================================================================
 // TEST METADATA
 // ============================================================================
@@ -856,6 +866,118 @@ pub fn build_comprehensive_test_rom() -> Vec<u8> {
         0x85, 0x38,
     ]);
     
+    // ========== FLAG VERIFICATION TESTS (57-66) ==========
+    // These tests capture processor status using PHP/PLA and verify specific flag bits.
+    // Each test uses PHP ($08) to push P register, PLA ($68) to pull into A,
+    // then STA direct page ($85) to store at $7E00xx for verification.
+    // 
+    // Flag bit masks (65816 processor status register):
+    //   N (bit 7, $80): Negative - set if result is negative (bit 7 = 1)
+    //   V (bit 6, $40): Overflow - set on signed arithmetic overflow  
+    //   M (bit 5, $20): Memory/Accumulator - 1=8-bit, 0=16-bit
+    //   X (bit 4, $10): Index registers - 1=8-bit, 0=16-bit
+    //   D (bit 3, $08): Decimal mode
+    //   I (bit 2, $04): Interrupt disable
+    //   Z (bit 1, $02): Zero - set if result is zero
+    //   C (bit 0, $01): Carry - set on unsigned overflow or borrow
+    
+    // Test 57: N flag - LDA #$80 sets N (negative flag)
+    code.extend_from_slice(&[
+        REP, 0x30,         // Clear M and X flags (16-bit mode)
+        SEP, 0x20,         // 8-bit accumulator
+        CLC,               // Clear carry to have known state
+        LDA_IMM, 0x80,     // Load negative value
+        PHP,               // Push processor status
+        PLA,               // Pull into A
+        0x85, 0x39,        // STA $39 (store flags)
+    ]);
+    
+    // Test 58: N flag - LDA #$01 clears N
+    code.extend_from_slice(&[
+        CLC,               // Clear carry
+        LDA_IMM, 0x01,     // Load positive value
+        PHP,
+        PLA,
+        0x85, 0x3A,
+    ]);
+    
+    // Test 59: Z flag - LDA #$00 sets Z (zero flag)
+    code.extend_from_slice(&[
+        CLC,
+        LDA_IMM, 0x00,     // Load zero
+        PHP,
+        PLA,
+        0x85, 0x3B,
+    ]);
+    
+    // Test 60: Z flag - LDA #$01 clears Z
+    code.extend_from_slice(&[
+        CLC,
+        LDA_IMM, 0x01,     // Load non-zero
+        PHP,
+        PLA,
+        0x85, 0x3C,
+    ]);
+    
+    // Test 61: C flag - SEC sets C (carry flag)
+    code.extend_from_slice(&[
+        LDA_IMM, 0x01,     // Load non-zero to clear Z
+        SEC,               // Set carry
+        PHP,
+        PLA,
+        0x85, 0x3D,
+    ]);
+    
+    // Test 62: C flag - CLC clears C
+    code.extend_from_slice(&[
+        LDA_IMM, 0x01,     // Load non-zero to clear Z
+        CLC,               // Clear carry
+        PHP,
+        PLA,
+        0x85, 0x3E,
+    ]);
+    
+    // Test 63: C flag - ADC overflow sets C
+    code.extend_from_slice(&[
+        CLC,
+        LDA_IMM, 0xFF,     // Load $FF
+        ADC_IMM, 0x02,     // Add $02 -> $101 (sets carry)
+        PHP,
+        PLA,
+        0x85, 0x3F,
+    ]);
+    
+    // Test 64: V flag - ADC signed overflow sets V
+    code.extend_from_slice(&[
+        CLV,               // Clear overflow first
+        CLC,
+        LDA_IMM, 0x7F,     // Load $7F (127 in signed)
+        ADC_IMM, 0x01,     // Add $01 -> $80 (-128, overflow!)
+        PHP,
+        PLA,
+        0x85, 0x40,
+    ]);
+    
+    // Test 65: V flag - No overflow (same signs produce expected sign)
+    code.extend_from_slice(&[
+        CLC,
+        LDA_IMM, 0x40,     // Load $40 (64)
+        ADC_IMM, 0x20,     // Add $20 -> $60 (96, no overflow)
+        PHP,
+        PLA,
+        0x85, 0x41,
+    ]);
+    
+    // Test 66: Combined flags - Multiple flags set simultaneously  
+    code.extend_from_slice(&[
+        CLC,
+        LDA_IMM, 0x50,     // Load $50 (80 positive)
+        ADC_IMM, 0x50,     // Add $50 -> $A0 (-96, overflow! positive+positive=negative)
+        PHP,
+        PLA,
+        0x85, 0x42,
+    ]);
+    
     // End with STP
     code.push(STP);
     
@@ -927,6 +1049,17 @@ pub fn get_comprehensive_test_expectations() -> Vec<(usize, u8)> {
         (54, 0xEF),  // Test 54: LDY indexed
         (55, 0x47),  // Test 55: Absolute addressing
         (56, 0x58),  // Test 56: Complex sequence
+        // Flag verification tests (57-66)
+        (57, N_FLAG | M_FLAG),  // Test 57: N flag set (8-bit mode also sets M flag)
+        (58, M_FLAG),           // Test 58: N flag clear (only M flag set)
+        (59, Z_FLAG | M_FLAG),  // Test 59: Z flag set
+        (60, M_FLAG),           // Test 60: Z flag clear
+        (61, C_FLAG | M_FLAG),  // Test 61: C flag set
+        (62, M_FLAG),           // Test 62: C flag clear
+        (63, C_FLAG | M_FLAG),  // Test 63: C flag set by ADC overflow
+        (64, V_FLAG | N_FLAG | M_FLAG),  // Test 64: V flag set ($7F+$01=$80)
+        (65, M_FLAG),           // Test 65: V flag clear
+        (66, V_FLAG | N_FLAG | M_FLAG),  // Test 66: V flag ($50+$50=$A0, pos+pos=neg)
     ]
 }
 
@@ -1288,7 +1421,7 @@ mod tests {
                  passed, failed, expectations.len());
         
         // Assert that most tests pass - this will expose implementation issues
-        assert!(passed >= 40, "Expected at least 40 tests to pass, got {}. \
+        assert!(passed >= 60, "Expected at least 60 tests to pass, got {}. \
                 This indicates CPU implementation issues that need to be fixed.", passed);
     }
 }
