@@ -87,6 +87,9 @@ mod memory_banking_tests {
                     }
                 }
                 
+                // Banks $40-$7D: LoROM expansion area (treat as open bus)
+                0x40..=0x7D => 0,
+                
                 // Banks $7E-$7F: WRAM (full 128KB)
                 0x7E..=0x7F => {
                     let wram_offset = ((bank as usize - 0x7E) * 0x10000) + offset as usize;
@@ -131,6 +134,11 @@ mod memory_banking_tests {
                             // ROM is read-only
                         }
                     }
+                }
+                
+                // Banks $40-$7D: LoROM expansion area (ignore writes)
+                0x40..=0x7D => {
+                    // Expansion area, ignore writes
                 }
                 
                 // Banks $7E-$7F: WRAM
@@ -288,20 +296,20 @@ mod memory_banking_tests {
         let rom = vec![0; 0x8000];
         let mut emu = create_emulator_with_rom(rom);
 
-        // Write to bank $7E
-        emu.write_byte(0x7E, 0x1700, 0xDB);
+        // Write to bank $7E at offset outside the mirrored range
+        emu.write_byte(0x7E, 0x3000, 0xDB);
         
         // Set DBR to $7E
         emu.cpu_state.dbr = 0x7E;
         
         // Access without explicit bank should use DBR
-        assert_eq!(emu.read_byte_dbr(0x1700), 0xDB);
+        assert_eq!(emu.read_byte_dbr(0x3000), 0xDB);
         
-        // Change DBR
+        // Change DBR to $00
         emu.cpu_state.dbr = 0x00;
         
-        // Same offset, different bank, should be different
-        assert_ne!(emu.read_byte_dbr(0x1700), 0xDB);
+        // Same offset in bank $00 should be different (hardware/open bus area, returns 0)
+        assert_ne!(emu.read_byte_dbr(0x3000), 0xDB);
     }
 
     #[test]
@@ -343,11 +351,11 @@ mod memory_banking_tests {
         // Direct page access to $50 should access $00:0050 which mirrors $7E:0050
         assert_eq!(emu.read_byte(0x00, 0x0050), 0xD0);
         
-        // Test with D=$2000
-        emu.cpu_state.d = 0x2000;
-        emu.write_byte(0x7E, 0x2050, 0xD2);
-        // Direct page $50 now means $00:2050 which mirrors $7E:2050
-        assert_eq!(emu.read_byte(0x00, 0x2050), 0xD2);
+        // Test with D=$0200 (still in mirrored range)
+        emu.cpu_state.d = 0x0200;
+        emu.write_byte(0x7E, 0x0250, 0xD2);
+        // Direct page $50 now means $00:0250 which mirrors $7E:0250
+        assert_eq!(emu.read_byte(0x00, 0x0250), 0xD2);
     }
 
     #[test]
